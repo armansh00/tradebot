@@ -1,0 +1,9 @@
+[project]
+name = "tradebot"
+version = "0.2.0"
+description = "Rules-based paper-trading bot with an explainable chat interface"
+requires-python = ">=3.10"
+
+[tool.pytest.ini_options]
+pythonpath = ["src"]
+testpaths = ["tests"]

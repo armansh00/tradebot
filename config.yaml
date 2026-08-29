@@ -1,0 +1,47 @@
+# tradebot configuration — every number here is pre-registered.
+# Changing strategy or risk parameters mid-test invalidates the paper test:
+# log a note in NOTES.md and restart the evaluation clock.
+
+universe: [SPY, QQQ, IWM, EFA, TLT, GLD]
+
+strategy:
+  name: dual-momentum-trend
+  top_n: 2                # hold at most 2 ETFs
+  sma_days: 200           # trend filter: only hold if price > 200-day SMA
+  mom_lookback_days: 252  # 12-month momentum...
+  mom_skip_days: 21       # ...skipping the most recent month (12-1 momentum)
+  cash_buffer_pct: 5      # keep 5% of equity in cash
+  min_order_notional: 2.0 # ignore rebalance dust under $2
+
+risk:
+  max_order_notional: 30.0   # no single order above $30
+  max_positions: 2
+  max_drawdown_pct: 10.0     # equity 10% below high-water mark -> flatten + halt
+  halt_file: .halt           # presence of this file stops all trading
+
+evaluation:
+  # Pre-registered pass/fail for the paper phase. The $50 goes live
+  # only if ALL of these hold. Decided before the first trade, on purpose.
+  min_weeks: 8
+  require_net_positive: true
+  max_drawdown_pct: 10.0
+  max_manual_overrides: 0
+
+fast:
+  # THE EXPERIMENT ARM — intraday opening-range breakout, simulated fills
+  # on live data with explicit modeled costs. Same $50, virtual account.
+  universe: [SPY, QQQ, AAPL, MSFT, NVDA, TSLA, AMZN, META]
+  start_cash: 50.0
+  or_minutes: 30            # opening range = first 30 minutes
+  top_k: 2                  # at most 2 concurrent positions
+  cost_bps_per_side: 5      # modeled half-spread + slippage per side (10 bps round trip)
+  max_trades_per_day: 6     # entry cap
+  daily_loss_stop_pct: 3.0  # day P&L -3% -> flatten, done for the day
+  flat_minutes_before_close: 30  # everything closed by 15:30 ET (30-min tick cadence safe)
+  max_drawdown_pct: 10.0    # same kill switch as the slow arm
+
+fast_evaluation:
+  # Pre-registered: what the fast arm must show to be taken seriously.
+  min_weeks: 8
+  must_beat_slow_arm: true
+  require_net_positive: true

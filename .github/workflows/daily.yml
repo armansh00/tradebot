@@ -1,0 +1,32 @@
+name: daily-paper-run
+on:
+  schedule:
+    # 13:40 UTC = 9:40 AM ET during daylight saving (shifts 1h in winter —
+    # harmless: the bot checks the market clock and skips if closed).
+    - cron: "40 13 * * 1-5"
+  workflow_dispatch: {}
+
+permissions:
+  contents: write
+
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install -r requirements.txt
+      - name: Daily tick (paper account)
+        env:
+          ALPACA_API_KEY: ${{ secrets.ALPACA_API_KEY }}
+          ALPACA_SECRET_KEY: ${{ secrets.ALPACA_SECRET_KEY }}
+        run: PYTHONPATH=src python -m tradebot run
+      - name: Commit ledger and report
+        run: |
+          git config user.name tradebot
+          git config user.email tradebot@users.noreply.github.com
+          git add ledger.jsonl state.json reports/ || true
+          git diff --cached --quiet || git commit -m "daily run $(date -u +%F) [skip ci]"
+          git push

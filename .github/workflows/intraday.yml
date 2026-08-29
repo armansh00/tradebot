@@ -1,0 +1,34 @@
+name: fast-arm-intraday
+on:
+  schedule:
+    # Every 30 min through the US session (UTC; DST shifts it 1h in winter —
+    # harmless, the tick checks the clock and skips outside market hours).
+    - cron: "5,35 14-20 * * 1-5"
+    - cron: "50 19,20 * * 1-5"
+  workflow_dispatch: {}
+
+permissions:
+  contents: write
+
+jobs:
+  tick:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install -r requirements.txt
+      - name: Fast-arm tick (simulated fills, live data)
+        env:
+          ALPACA_API_KEY: ${{ secrets.ALPACA_API_KEY }}
+          ALPACA_SECRET_KEY: ${{ secrets.ALPACA_SECRET_KEY }}
+        run: PYTHONPATH=src python -m tradebot run-fast
+      - name: Commit fast ledger
+        run: |
+          git config user.name tradebot
+          git config user.email tradebot@users.noreply.github.com
+          git pull --rebase || true
+          git add ledger_fast.jsonl state_fast.json || true
+          git diff --cached --quiet || git commit -m "fast tick $(date -u +%FT%H:%M) [skip ci]"
+          git push
