@@ -1,0 +1,40 @@
+name: adversarial-review
+on:
+  schedule:
+    - cron: "0 12 * * 0"        # Sundays 12:00 UTC — weekly audit
+  push:
+    paths: ["src/**", "config.yaml"]   # and after any strategy/risk change
+  workflow_dispatch: {}
+
+permissions:
+  contents: write
+  issues: write
+
+jobs:
+  review:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Cross-vendor adversarial review (OpenAI audits the bot)
+        env:
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+        run: python scripts/adversarial_review.py
+      - name: Commit findings and open issue
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if [ -f review_summary.txt ]; then
+            git config user.name tradebot-review
+            git config user.email tradebot@users.noreply.github.com
+            git pull --rebase || true
+            git add REVIEWS/ || true
+            git diff --cached --quiet || git commit -m "adversarial review $(date -u +%F) [skip ci]"
+            git push || true
+            gh issue create \
+              --title "Adversarial review findings — $(date -u +%F)" \
+              --body-file review_summary.txt \
+              --label "review" || true
+          fi

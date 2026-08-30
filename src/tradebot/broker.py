@@ -81,6 +81,16 @@ class AlpacaBroker:
             out[sym] = pd.Series(sub["close"].to_numpy(), name=sym)
         return out
 
+    def most_actives(self, n: int) -> list[str]:
+        """Top-n most-active stocks by volume today (screener API)."""
+        from alpaca.data.historical.screener import ScreenerClient
+        from alpaca.data.requests import MostActivesRequest
+        import os as _os
+        client = ScreenerClient(_os.environ["ALPACA_API_KEY"],
+                                _os.environ["ALPACA_SECRET_KEY"])
+        resp = client.get_most_actives(MostActivesRequest(top=n))
+        return [a.symbol for a in resp.most_actives][:n]
+
     def submit(self, order: dict) -> dict:
         if self.dry_run:
             return {**order, "status": "dry_run"}

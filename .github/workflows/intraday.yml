@@ -23,12 +23,14 @@ jobs:
         env:
           ALPACA_API_KEY: ${{ secrets.ALPACA_API_KEY }}
           ALPACA_SECRET_KEY: ${{ secrets.ALPACA_SECRET_KEY }}
-        run: PYTHONPATH=src python -m tradebot run-fast
+        run: |
+          PYTHONPATH=src python -m tradebot run-fast
+          PYTHONPATH=src python -m tradebot run-movers
       - name: Commit fast ledger
         run: |
           git config user.name tradebot
           git config user.email tradebot@users.noreply.github.com
           git pull --rebase || true
-          for f in ledger_fast.jsonl state_fast.json; do git add "$f" 2>/dev/null || true; done
+          git add ledger_fast.jsonl state_fast.json || true
           git diff --cached --quiet || git commit -m "fast tick $(date -u +%FT%H:%M) [skip ci]"
           git push

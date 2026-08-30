@@ -27,7 +27,7 @@ def main(argv: list[str] | None = None) -> int:
             print(f"  REJECTED {o['symbol']}: {o['rejected_reason']}")
         return 0
 
-    if cmd == "run-fast":
+    if cmd in {"run-fast", "run-movers"}:
         try:
             from dotenv import load_dotenv
             load_dotenv(cfg.root / ".env")
@@ -35,8 +35,9 @@ def main(argv: list[str] | None = None) -> int:
             pass
         from .broker import AlpacaBroker
         from .fastarm import run_fast_once
-        result = run_fast_once(cfg, AlpacaBroker())
-        print(f"fast run: {result['status']}"
+        arm = "movers" if cmd == "run-movers" else "fast"
+        result = run_fast_once(cfg, AlpacaBroker(), arm=arm)
+        print(f"{arm} run: {result['status']}"
               + (f" equity ${result['equity']:.2f} "
                  f"positions {result['positions']}"
                  if result["status"] == "ok" else ""))
@@ -70,7 +71,7 @@ def main(argv: list[str] | None = None) -> int:
         return 0
 
     print("Usage: python -m tradebot "
-          "[run|chat|status|pnl|why SYM|decisions|report|evaluate|kill|resume]")
+          "[run|run-fast|run-movers|chat|status|pnl|why SYM|decisions|report|evaluate|compare|kill|resume]")
     return 0 if cmd == "help" else 1
 
 

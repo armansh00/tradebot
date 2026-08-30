@@ -27,17 +27,24 @@ CLOSE_T = time(16, 0)
 
 
 # ---------- virtual account ----------------------------------------------
-def _load_state(cfg: Config) -> dict:
-    if cfg.fast_state_path.exists():
-        return json.loads(cfg.fast_state_path.read_text())
-    return {"cash": cfg.fast.start_cash, "positions": {},
-            "high_water_mark": cfg.fast.start_cash, "day": None,
-            "day_start_equity": cfg.fast.start_cash, "trades_today": 0,
+def _arm(cfg: Config, arm: str):
+    """(arm_cfg, ledger_path, state_path) for the named simulated arm."""
+    if arm == "movers":
+        return cfg.movers, cfg.movers_ledger_path, cfg.movers_state_path
+    return cfg.fast, cfg.fast_ledger_path, cfg.fast_state_path
+
+
+def _load_state(state_path, start_cash: float) -> dict:
+    if state_path.exists():
+        return json.loads(state_path.read_text())
+    return {"cash": start_cash, "positions": {},
+            "high_water_mark": start_cash, "day": None,
+            "day_start_equity": start_cash, "trades_today": 0,
             "stopped_today": False, "halted": False}
 
 
-def _save_state(cfg: Config, st: dict) -> None:
-    cfg.fast_state_path.write_text(json.dumps(st, indent=2))
+def _save_state(state_path, st: dict) -> None:
+    state_path.write_text(json.dumps(st, indent=2))
 
 
 def _mark_equity(st: dict, lasts: dict[str, float]) -> float:
@@ -47,10 +54,10 @@ def _mark_equity(st: dict, lasts: dict[str, float]) -> float:
     return round(eq, 4)
 
 
-def _fill(cfg: Config, st: dict, ledger: Ledger, side: str, sym: str,
+def _fill(f, st: dict, ledger: Ledger, side: str, sym: str,
           px: float, qty: float, reason: str) -> None:
     """Simulated fill with explicit cost. Buys pay up, sells receive less."""
-    bps = cfg.fast.cost_bps_per_side / 1e4
+    bps = f.cost_bps_per_side / 1e4
     fill_px = px * (1 + bps) if side == "buy" else px * (1 - bps)
     gross = qty * px
     cost = abs(qty * px * bps)
@@ -83,10 +90,11 @@ def opening_range(bars, or_end: datetime) -> tuple[float, float] | None:
 
 
 # ---------- the tick ------------------------------------------------------
-def run_fast_once(cfg: Config, broker, now: datetime | None = None) -> dict:
-    ledger = Ledger(cfg.fast_ledger_path)
-    st = _load_state(cfg)
-    f = cfg.fast
+def run_fast_once(cfg: Config, broker, now: datetime | None = None,
+                  arm: str = "fast") -> dict:
+    f, ledger_path, state_path = _arm(cfg, arm)
+    ledger = Ledger(ledger_path)
+    st = _load_state(state_path, f.start_cash)
 
     now = now or broker.now_et()
     today = now.date().isoformat()
@@ -105,7 +113,12 @@ def run_fast_once(cfg: Config, broker, now: datetime | None = None) -> dict:
     if st.get("day") != today:  # new day: reset counters, carry nothing overnight
         st.update({"day": today, "trades_today": 0, "stopped_today": False})
 
-    bars = broker.intraday_5min(f.universe)  # {sym: df[t,o,h,l,c]}
+    if f.universe_mode == "most_active":
+        universe = broker.most_actives(f.universe_size)
+        ledger.write("universe", day=today, symbols=universe)
+    else:
+        universe = f.universe
+    bars = broker.intraday_5min(universe)  # {sym: df[t,o,h,l,c]}
     lasts = {s: float(df["c"].iloc[-1]) for s, df in bars.items() if len(df)}
     if st.get("day_start_equity") is None or st.get("day") != today or \
        "day_equity_set" not in st:
@@ -123,12 +136,12 @@ def run_fast_once(cfg: Config, broker, now: datetime | None = None) -> dict:
         if st["high_water_mark"] > 0 else 0.0
     if dd >= f.max_drawdown_pct:
         for sym in list(st["positions"]):
-            _fill(cfg, st, ledger, "sell", sym, lasts.get(
+            _fill(f, st, ledger, "sell", sym, lasts.get(
                 sym, st["positions"][sym]["last_px"]),
                 st["positions"][sym]["qty"], "drawdown_kill")
         st["halted"] = True
         ledger.write("fast_halt", reason=f"drawdown {dd:.1f}%")
-        _save_state(cfg, st)
+        _save_state(state_path, st)
         return {"status": "killed"}
 
     # --- daily loss stop --------------------------------------------------
@@ -136,7 +149,7 @@ def run_fast_once(cfg: Config, broker, now: datetime | None = None) -> dict:
         if st["day_start_equity"] > 0 else 0.0
     if not st["stopped_today"] and day_pnl_pct <= -f.daily_loss_stop_pct:
         for sym in list(st["positions"]):
-            _fill(cfg, st, ledger, "sell", sym, lasts[sym],
+            _fill(f, st, ledger, "sell", sym, lasts[sym],
                   st["positions"][sym]["qty"], "daily_loss_stop")
         st["stopped_today"] = True
         ledger.write("fast_day_stop", day_pnl_pct=round(day_pnl_pct, 3))
@@ -144,7 +157,7 @@ def run_fast_once(cfg: Config, broker, now: datetime | None = None) -> dict:
     # --- end-of-day flat --------------------------------------------------
     if now >= flat_dt:
         for sym in list(st["positions"]):
-            _fill(cfg, st, ledger, "sell", sym, lasts[sym],
+            _fill(f, st, ledger, "sell", sym, lasts[sym],
                   st["positions"][sym]["qty"], "eod_flat")
     elif not st["stopped_today"] and now >= or_end:
         ors = {}
@@ -156,7 +169,7 @@ def run_fast_once(cfg: Config, broker, now: datetime | None = None) -> dict:
         # exits: stop = back below OR low
         for sym in list(st["positions"]):
             if sym in ors and sym in lasts and lasts[sym] < ors[sym][1]:
-                _fill(cfg, st, ledger, "sell", sym, lasts[sym],
+                _fill(f, st, ledger, "sell", sym, lasts[sym],
                       st["positions"][sym]["qty"], "or_low_stop")
 
         # entries: breakouts above OR high, ranked by strength
@@ -165,6 +178,8 @@ def run_fast_once(cfg: Config, broker, now: datetime | None = None) -> dict:
         candidates = []
         for sym, (hi, lo) in ors.items():
             if sym in st["positions"] or sym not in lasts:
+                continue
+            if lasts[sym] < f.min_price:
                 continue
             if lasts[sym] > hi > 0:
                 candidates.append((sym, lasts[sym] / hi - 1, hi, lo))
@@ -177,7 +192,7 @@ def run_fast_once(cfg: Config, broker, now: datetime | None = None) -> dict:
             if notional < 5:  # not worth a fill under $5
                 break
             qty = notional / lasts[sym]
-            _fill(cfg, st, ledger, "buy", sym, lasts[sym], qty,
+            _fill(f, st, ledger, "buy", sym, lasts[sym], qty,
                   f"breakout +{strength:.2%} above OR high {hi:.2f}")
             st["positions"][sym]["or_low"] = lo
             st["trades_today"] += 1
@@ -198,6 +213,6 @@ def run_fast_once(cfg: Config, broker, now: datetime | None = None) -> dict:
     for sym, pos in st["positions"].items():
         if sym in lasts:
             pos["last_px"] = lasts[sym]
-    _save_state(cfg, st)
+    _save_state(state_path, st)
     return {"status": "ok", "equity": equity,
             "positions": list(st["positions"])}

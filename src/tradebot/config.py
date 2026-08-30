@@ -28,7 +28,6 @@ class RiskCfg:
 
 @dataclass
 class FastCfg:
-    universe: list[str]
     start_cash: float
     or_minutes: int
     top_k: int
@@ -37,6 +36,17 @@ class FastCfg:
     daily_loss_stop_pct: float
     flat_minutes_before_close: int
     max_drawdown_pct: float
+    universe: list[str] = field(default_factory=list)
+    universe_mode: str = "static"      # "static" | "most_active"
+    universe_size: int = 10
+    min_price: float = 5.0
+
+
+@dataclass
+class MoversEvalCfg:
+    min_weeks: int
+    require_net_positive: bool
+    must_beat_both_arms: bool
 
 
 @dataclass
@@ -61,7 +71,9 @@ class Config:
     risk: RiskCfg
     evaluation: EvalCfg
     fast: FastCfg
+    movers: FastCfg
     fast_evaluation: FastEvalCfg
+    movers_evaluation: MoversEvalCfg
     root: Path = field(default_factory=Path.cwd)
 
     @property
@@ -79,6 +91,14 @@ class Config:
     @property
     def fast_state_path(self) -> Path:
         return self.root / "state_fast.json"
+
+    @property
+    def movers_ledger_path(self) -> Path:
+        return self.root / "ledger_movers.jsonl"
+
+    @property
+    def movers_state_path(self) -> Path:
+        return self.root / "state_movers.json"
 
     @property
     def reports_dir(self) -> Path:
@@ -99,6 +119,8 @@ def load_config(root: str | os.PathLike | None = None) -> Config:
         evaluation=EvalCfg(**raw["evaluation"]),
         fast=FastCfg(**{**raw["fast"],
                         "universe": [x.upper() for x in raw["fast"]["universe"]]}),
+        movers=FastCfg(**raw["movers"]),
         fast_evaluation=FastEvalCfg(**raw["fast_evaluation"]),
+        movers_evaluation=MoversEvalCfg(**raw["movers_evaluation"]),
         root=root_path,
     )

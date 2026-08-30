@@ -15,6 +15,7 @@ HELP = """Commands I understand:
   evaluate          score the slow arm against pre-registered criteria
   compare           fast arm vs slow arm vs the toll booth
   fast              fast-arm status: equity, positions, today's trades
+  movers            movers-arm status (most-active universe)
   report            print today's report
   help / quit
 """
@@ -104,6 +105,20 @@ def answer(cfg: Config, query: str) -> str:
                 f"cash ${run.get('cash', 0):,.2f}, positions: "
                 + (", ".join(f"{s} ${v:,.2f}" for s, v in sorted(pos.items()))
                    or "flat") + ".")
+
+    if q == "movers":
+        ml = Ledger(cfg.movers_ledger_path)
+        run = ml.last("fast_run")
+        if not run:
+            return "Movers arm has no runs yet. Start with: python -m tradebot run-movers"
+        uni = ml.last("universe")
+        pos = run.get("positions", {})
+        return (f"Movers arm as of {run['ts'][:16]} UTC — equity "
+                f"${run['equity']:,.2f} (day {run.get('day_pnl_pct', 0):+.2f}%), "
+                f"positions: "
+                + (", ".join(f"{s} ${v:,.2f}" for s, v in sorted(pos.items()))
+                   or "flat")
+                + (f". Today's universe: {', '.join(uni['symbols'])}" if uni else ""))
 
     if q == "evaluate":
         return report.evaluate(cfg, Ledger(cfg.ledger_path))

@@ -36,49 +36,60 @@ def _stats(series: list[tuple[str, float]]) -> dict:
             "max_dd": mdd}
 
 
+def _arm_row(recs: list[dict]) -> dict:
+    orders = [r for r in recs if r["type"] == "fast_order"]
+    closes = [r for r in recs if r["type"] == "fast_close"]
+    return {"orders": len(orders),
+            "costs": sum(r.get("modeled_cost", 0.0) for r in orders),
+            "closes": len(closes),
+            "wins": sum(1 for r in closes if r.get("pnl", 0) > 0)}
+
+
 def compare_report(cfg: Config) -> str:
     slow_recs = Ledger(cfg.ledger_path).read()
     fast_recs = Ledger(cfg.fast_ledger_path).read()
+    movers_recs = Ledger(cfg.movers_ledger_path).read()
     slow = _daily_equity(slow_recs, "run")
     fast = _daily_equity(fast_recs, "fast_run")
+    movers = _daily_equity(movers_recs, "fast_run")
 
-    lines = ["# Two-arm comparison — slow vs fast", ""]
-    if not slow and not fast:
-        return "\n".join(lines + ["No data in either ledger yet."])
+    lines = ["# Arm comparison — patience vs frequency vs heat", ""]
+    if not slow and not fast and not movers:
+        return "\n".join(lines + ["No data in any ledger yet."])
 
-    # restrict to the overlapping window so the race is fair
-    if slow and fast:
-        start = max(slow[0][0], fast[0][0])
+    # restrict to the overlapping window of the arms that have data
+    starts = [series[0][0] for series in (slow, fast, movers) if series]
+    if len(starts) > 1:
+        start = max(starts)
         slow = [x for x in slow if x[0] >= start]
         fast = [x for x in fast if x[0] >= start]
+        movers = [x for x in movers if x[0] >= start]
         lines.append(f"Common window starts {start}.")
         lines.append("")
 
-    s, f = _stats(slow), _stats(fast)
-    fast_orders = [r for r in fast_recs if r["type"] == "fast_order"]
-    fast_costs = sum(r.get("modeled_cost", 0.0) for r in fast_orders)
-    fast_closes = [r for r in fast_recs if r["type"] == "fast_close"]
-    wins = sum(1 for r in fast_closes if r.get("pnl", 0) > 0)
+    s, f, m = _stats(slow), _stats(fast), _stats(movers)
+    fa, ma = _arm_row(fast_recs), _arm_row(movers_recs)
     slow_orders = len([r for r in slow_recs if r["type"] == "order"])
 
-    lines += ["| | Slow arm (dual momentum) | Fast arm (intraday ORB) |",
-              "|---|---|---|",
-              f"| Days of data | {s['n']} | {f['n']} |",
-              f"| Net return | {s['net_pct']:+.2f}% | {f['net_pct']:+.2f}% |",
-              f"| Annualized Sharpe | {s['sharpe']:.2f} | {f['sharpe']:.2f} |",
-              f"| t-statistic | {s['tstat']:.2f} | {f['tstat']:.2f} |",
-              f"| Max drawdown | {s['max_dd']:.2f}% | {f['max_dd']:.2f}% |",
-              f"| Orders placed | {slow_orders} | {len(fast_orders)} |",
-              f"| Modeled costs paid | ~$0 (4-ish trades/mo) "
-              f"| ${fast_costs:.2f} |",
+    lines += ["| Arm | Days | Net return | Sharpe | t-stat | Max DD | Orders | Costs paid |",
+              "|---|---|---|---|---|---|---|---|",
+              f"| Slow (dual momentum) | {s['n']} | {s['net_pct']:+.2f}% | "
+              f"{s['sharpe']:.2f} | {s['tstat']:.2f} | {s['max_dd']:.2f}% | "
+              f"{slow_orders} | ~$0 |",
+              f"| Fast (ORB, fixed universe) | {f['n']} | {f['net_pct']:+.2f}% | "
+              f"{f['sharpe']:.2f} | {f['tstat']:.2f} | {f['max_dd']:.2f}% | "
+              f"{fa['orders']} | ${fa['costs']:.2f} |",
+              f"| Movers (ORB, most-active) | {m['n']} | {m['net_pct']:+.2f}% | "
+              f"{m['sharpe']:.2f} | {m['tstat']:.2f} | {m['max_dd']:.2f}% | "
+              f"{ma['orders']} | ${ma['costs']:.2f} |",
               ""]
-    if fast_closes:
-        lines.append(f"Fast arm round trips: {len(fast_closes)}, "
-                     f"win rate {wins / len(fast_closes):.0%}, "
-                     f"total costs ${fast_costs:.2f} "
-                     f"({fast_costs / cfg.fast.start_cash * 100:.1f}% of the "
-                     f"starting book so far).")
-        lines.append("")
+    for label, arm in (("Fast", fa), ("Movers", ma)):
+        if arm["closes"]:
+            lines.append(f"{label} arm round trips: {arm['closes']}, win rate "
+                         f"{arm['wins'] / arm['closes']:.0%}, costs "
+                         f"${arm['costs']:.2f} "
+                         f"({arm['costs'] / 50.0 * 100:.1f}% of starting book).")
+    lines.append("")
 
     fe = cfg.fast_evaluation
     weeks = min(s["n"], f["n"]) / 5.0 if (slow and fast) else 0.0
@@ -94,7 +105,29 @@ def compare_report(cfg: Config) -> str:
         lines.append(f"- [{'PASS' if ok else 'FAIL'}] {name}")
     verdict = "FAST ARM WINS" if all(checks.values()) else \
         ("INSUFFICIENT DATA" if weeks < fe.min_weeks else "SLOW ARM WINS")
-    lines += ["", f"**{verdict}**", "",
+    lines += ["", f"**Fast-vs-slow verdict: {verdict}**", ""]
+
+    if movers:
+        me = cfg.movers_evaluation
+        mweeks = min(x for x in (s["n"], f["n"], m["n"]) if x) / 5.0 \
+            if (slow and fast and movers) else 0.0
+        mchecks = {
+            f"min {me.min_weeks} weeks of overlap": mweeks >= me.min_weeks,
+            "movers arm net positive": (m["net_pct"] > 0)
+                if me.require_net_positive else True,
+            "movers beats BOTH other arms net of costs":
+                (m["net_pct"] > s["net_pct"] and m["net_pct"] > f["net_pct"])
+                if me.must_beat_both_arms else True,
+        }
+        lines.append("## Pre-registered verdict (movers arm)\n")
+        for name, ok in mchecks.items():
+            lines.append(f"- [{'PASS' if ok else 'FAIL'}] {name}")
+        mv = "MOVERS ARM WINS" if all(mchecks.values()) else \
+            ("INSUFFICIENT DATA" if mweeks < me.min_weeks
+             else "ATTENTION TAX CONFIRMED")
+        lines += ["", f"**Movers verdict: {mv}**", ""]
+
+    lines += ["",
               "Same caveat as always: at these sample sizes the t-statistics "
               "above are the honest measure of how much this comparison can "
               "prove. Costs, however, are not estimates — they are counted."]

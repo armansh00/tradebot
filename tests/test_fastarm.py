@@ -134,5 +134,37 @@ def test_compare_report_runs(cfg):
         slow.write("run", equity=se)
         fast.write("fast_run", equity=fe, day=f"2026-08-{24 + i:02d}")
     out = compare_report(cfg)
-    assert "Two-arm comparison" in out and "verdict" in out.lower()
+    assert "Arm comparison" in out and "Fast-vs-slow verdict" in out
     assert "INSUFFICIENT DATA" in out or "ARM" in out
+
+
+def test_movers_arm_uses_screener_universe(cfg):
+    from tradebot.ledger import Ledger as L
+    date = datetime.now(ET).date()
+    frames = {"GME": day_bars(date, "breakout", 25), "AMC": day_bars(date, "inside", 8),
+              "PLTR": day_bars(date, "breakout", 40)}
+    b = FastFake(frames, datetime.combine(date, datetime.min.time(), ET)
+                 .replace(hour=11, minute=0))
+    b.most_actives = lambda n: ["GME", "AMC", "PLTR"]
+    result = run_fast_once(cfg, b, now=b.now_et(), arm="movers")
+    assert set(result["positions"]) <= {"GME", "PLTR", "AMC"}
+    recs = L(cfg.movers_ledger_path).read()
+    assert any(r["type"] == "universe" for r in recs)          # universe logged
+    orders = [r for r in recs if r["type"] == "fast_order"]
+    assert orders and all(o["modeled_cost"] > 0 for o in orders)
+    # movers cost model is 15 bps/side: cost ≈ notional * 0.0015
+    o = orders[0]
+    assert abs(o["modeled_cost"] - o["notional"] * 0.0015) < 0.01
+    assert not (cfg.fast_ledger_path.exists() and
+                any(r["type"] == "fast_order"
+                    for r in L(cfg.fast_ledger_path).read()))  # arms isolated
+
+
+def test_movers_min_price_filter(cfg):
+    date = datetime.now(ET).date()
+    frames = {"PENNY": day_bars(date, "breakout", 2.0)}       # under $5 floor
+    b = FastFake(frames, datetime.combine(date, datetime.min.time(), ET)
+                 .replace(hour=11, minute=0))
+    b.most_actives = lambda n: ["PENNY"]
+    result = run_fast_once(cfg, b, now=b.now_et(), arm="movers")
+    assert result["positions"] == []

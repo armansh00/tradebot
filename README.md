@@ -106,6 +106,22 @@ from the literature (Barber & Odean; the Taiwan day-trading studies) is
 that costs win. If your data says otherwise after 8 weeks, that's a
 result worth taking seriously — and either way it costs $0 to find out.
 
+## Arm 3 — movers mode
+
+`python -m tradebot run-movers` (scheduled in the intraday workflow) trades
+the same opening-range playbook, but its universe is rebuilt every morning
+from the market's top most-active stocks (min price $5), with a 15 bps/side
+cost model — movers carry wider spreads. It exists to test attention-driven
+trading against Barber & Odean's evidence, pre-registered in
+`movers_evaluation`. Three philosophies race: patience, frequency on
+quality, frequency on heat. `compare` renders all three.
+
+## Cross-vendor review
+
+See `REVIEW_BRIEF.md`: OpenAI's model audits this Claude-written code
+weekly and after every strategy change, committing findings to `REVIEWS/`
+and opening an issue. One secret enables it: `OPENAI_API_KEY`.
+
 ## Tests
 
 ```

@@ -41,8 +41,31 @@ fast:
   flat_minutes_before_close: 30  # everything closed by 15:30 ET (30-min tick cadence safe)
   max_drawdown_pct: 10.0    # same kill switch as the slow arm
 
+movers:
+  # ARM 3 — same intraday ORB discipline, but the universe is rebuilt every
+  # morning from the market's most-active stocks. Tests the "trade whatever
+  # moves most" hypothesis against Barber-Odean attention-driven-buying
+  # evidence. Higher modeled costs: volatile movers carry wider spreads.
+  universe_mode: most_active
+  universe_size: 10          # top-N most-active stocks each day
+  min_price: 5.0             # skip sub-$5 names
+  start_cash: 50.0
+  or_minutes: 30
+  top_k: 2
+  cost_bps_per_side: 15      # 30 bps round trip — movers' spreads are real
+  max_trades_per_day: 6
+  daily_loss_stop_pct: 3.0
+  flat_minutes_before_close: 30
+  max_drawdown_pct: 10.0
+
 fast_evaluation:
   # Pre-registered: what the fast arm must show to be taken seriously.
   min_weeks: 8
   must_beat_slow_arm: true
   require_net_positive: true
+
+movers_evaluation:
+  # Pre-registered: what the movers arm must show to be taken seriously.
+  min_weeks: 8
+  require_net_positive: true
+  must_beat_both_arms: true
