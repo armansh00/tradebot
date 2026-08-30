@@ -29,6 +29,6 @@ jobs:
           git config user.name tradebot
           git config user.email tradebot@users.noreply.github.com
           git pull --rebase || true
-          git add ledger_fast.jsonl state_fast.json || true
+          for f in ledger_fast.jsonl state_fast.json; do git add "$f" 2>/dev/null || true; done
           git diff --cached --quiet || git commit -m "fast tick $(date -u +%FT%H:%M) [skip ci]"
           git push
