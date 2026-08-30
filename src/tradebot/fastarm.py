@@ -115,7 +115,7 @@ def run_fast_once(cfg: Config, broker, now: datetime | None = None,
 
     if f.universe_mode == "most_active":
         universe = broker.most_actives(f.universe_size)
-        ledger.write("universe", day=today, symbols=universe)
+        ledger.write("universe", arm=arm, day=today, symbols=universe)
     else:
         universe = f.universe
     bars = broker.intraday_5min(universe)  # {sym: df[t,o,h,l,c]}
@@ -140,7 +140,7 @@ def run_fast_once(cfg: Config, broker, now: datetime | None = None,
                 sym, st["positions"][sym]["last_px"]),
                 st["positions"][sym]["qty"], "drawdown_kill")
         st["halted"] = True
-        ledger.write("fast_halt", reason=f"drawdown {dd:.1f}%")
+        ledger.write("fast_halt", arm=arm, reason=f"drawdown {dd:.1f}%")
         _save_state(state_path, st)
         return {"status": "killed"}
 
@@ -152,7 +152,7 @@ def run_fast_once(cfg: Config, broker, now: datetime | None = None,
             _fill(f, st, ledger, "sell", sym, lasts[sym],
                   st["positions"][sym]["qty"], "daily_loss_stop")
         st["stopped_today"] = True
-        ledger.write("fast_day_stop", day_pnl_pct=round(day_pnl_pct, 3))
+        ledger.write("fast_day_stop", arm=arm, day_pnl_pct=round(day_pnl_pct, 3))
 
     # --- end-of-day flat --------------------------------------------------
     if now >= flat_dt:
@@ -198,13 +198,13 @@ def run_fast_once(cfg: Config, broker, now: datetime | None = None,
             st["trades_today"] += 1
             slots -= 1
             entered.append(sym)
-        ledger.write("fast_decision", or_levels={s: [round(h, 2), round(l, 2)]
+        ledger.write("fast_decision", arm=arm, or_levels={s: [round(h, 2), round(l, 2)]
                                                  for s, (h, l) in ors.items()},
                      candidates=[c[0] for c in candidates], entered=entered,
                      trades_today=st["trades_today"])
 
     equity = _mark_equity(st, lasts)
-    ledger.write("fast_run", equity=equity, day=today,
+    ledger.write("fast_run", arm=arm, equity=equity, day=today,
                  day_pnl_pct=round((equity / st["day_start_equity"] - 1) * 100, 3)
                  if st["day_start_equity"] > 0 else 0.0,
                  positions={s: round(p["qty"] * lasts.get(s, p["last_px"]), 2)
