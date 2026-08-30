@@ -28,9 +28,12 @@ def run_once(cfg: Config, broker, force: bool = False) -> dict:
 
     # drawdown kill switch BEFORE any new orders
     if risk.check_drawdown(equity):
-        flatten = [{"symbol": s, "side": "sell", "notional": abs(mv),
-                    "from_notional": mv, "to_notional": 0.0}
-                   for s, mv in positions.items() if mv > 0]
+        # Close EVERYTHING, shorts included — a kill switch that leaves a
+        # short open has not killed anything.
+        # (Adversarial review 2026-08-30, finding 2 — confirmed.)
+        flatten = [{"symbol": s, "side": "sell" if mv > 0 else "buy",
+                    "notional": abs(mv), "from_notional": mv, "to_notional": 0.0}
+                   for s, mv in positions.items() if mv != 0]
         results = [broker.submit(o) for o in flatten]
         for r in results:
             ledger.write("order", **r, context="drawdown_flatten")

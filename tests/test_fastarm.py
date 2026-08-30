@@ -168,3 +168,20 @@ def test_movers_min_price_filter(cfg):
     b.most_actives = lambda n: ["PENNY"]
     result = run_fast_once(cfg, b, now=b.now_et(), arm="movers")
     assert result["positions"] == []
+
+
+def test_overnight_positions_flattened_on_new_day(cfg):
+    from tradebot.ledger import Ledger as L
+    from datetime import timedelta as TD
+    d1 = datetime.now(ET).date() - TD(days=1)
+    d2 = datetime.now(ET).date()
+    f1 = {"SPY": day_bars(d1, "breakout")}
+    t1 = datetime.combine(d1, datetime.min.time(), ET).replace(hour=11, minute=0)
+    r1 = run_fast_once(cfg, FastFake(f1, t1), now=t1)
+    assert r1["positions"] == ["SPY"]             # held; EOD tick then "missed"
+    f2 = {"SPY": day_bars(d2, "inside")}
+    t2 = datetime.combine(d2, datetime.min.time(), ET).replace(hour=10, minute=0)
+    r2 = run_fast_once(cfg, FastFake(f2, t2), now=t2)
+    assert r2["positions"] == []
+    closes = [r for r in L(cfg.fast_ledger_path).read() if r["type"] == "fast_close"]
+    assert closes and closes[-1]["reason"] == "overnight_flatten"

@@ -34,7 +34,11 @@ class RiskManager:
             return raw
         state = self._state()
         baseline = state.get("book_baseline")
-        if baseline is None or raw < baseline * 0.5:
+        # A genuine dashboard reset collapses the account to ~the cap itself.
+        # A large TRADING loss leaves raw far above the cap — that must flow
+        # into the book and trip the drawdown halt, never get re-anchored.
+        # (Adversarial review 2026-08-30, finding 1 — confirmed.)
+        if baseline is None or (raw < baseline * 0.5 and raw <= cap * 2):
             baseline = raw
             state["book_baseline"] = baseline
             self._save_state(state)
@@ -47,7 +51,13 @@ class RiskManager:
         return {}
 
     def _save_state(self, state: dict) -> None:
-        self.cfg.state_path.write_text(json.dumps(state, indent=2))
+        # Atomic: a crash mid-write must never leave a truncated state file
+        # that silently forgets a halt or the high-water mark.
+        # (Adversarial review 2026-08-30, finding 7 — confirmed.)
+        import os
+        tmp = self.cfg.state_path.with_suffix(".json.tmp")
+        tmp.write_text(json.dumps(state, indent=2))
+        os.replace(tmp, self.cfg.state_path)
 
     def check_drawdown(self, equity: float) -> bool:
         """Update high-water mark; return True if drawdown limit breached."""

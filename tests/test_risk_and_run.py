@@ -72,3 +72,32 @@ def test_book_cap_rebaselines_after_dashboard_reset(cfg):
     assert risk.book_equity(100_000.0) == 50.0   # baseline anchors at 100k
     assert risk.book_equity(100_010.0) == 60.0   # bot P&L flows through
     assert risk.book_equity(50.0) == 50.0        # account reset detected, re-anchored
+
+
+def test_trading_loss_is_never_rebaselined_away(cfg):
+    # Adversarial review finding 1: a 60% TRADING loss must flow into the
+    # book and trip the kill switch, not be mistaken for an account reset.
+    from tradebot.risk import RiskManager
+    risk = RiskManager(cfg, Ledger(cfg.ledger_path))
+    assert risk.book_equity(1000.0) == 50.0      # baseline 1000
+    assert not risk.check_drawdown(50.0)          # normal day records HWM
+    book_after_loss = risk.book_equity(400.0)     # -60% raw, NOT a reset
+    assert book_after_loss < 0                    # loss hits the book
+    assert risk.check_drawdown(book_after_loss)   # and the switch fires
+    # while a true dashboard reset (collapse to ~cap) still re-anchors:
+    risk2 = RiskManager(cfg, Ledger(cfg.ledger_path))
+    cfg.state_path.unlink()
+    assert risk2.book_equity(100_000.0) == 50.0
+    assert risk2.book_equity(50.0) == 50.0
+
+
+def test_kill_switch_flattens_shorts_too(cfg):
+    from conftest import FakeBroker, trending_series
+    closes = {s: trending_series(seed=i) for i, s in enumerate(cfg.universe)}
+    b = FakeBroker(closes, equity=50.0, positions={"SPY": -30.0})
+    run_once(cfg, b, force=True)
+    b._equity = 40.0
+    result = run_once(cfg, b, force=True)
+    assert result["status"] == "killed"
+    assert any(o["side"] == "buy" and o["symbol"] == "SPY"
+               for o in b.submitted)              # short covered, not ignored

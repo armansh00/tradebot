@@ -44,7 +44,10 @@ def _load_state(state_path, start_cash: float) -> dict:
 
 
 def _save_state(state_path, st: dict) -> None:
-    state_path.write_text(json.dumps(st, indent=2))
+    import os
+    tmp = state_path.with_suffix(".json.tmp")
+    tmp.write_text(json.dumps(st, indent=2))
+    os.replace(tmp, state_path)
 
 
 def _mark_equity(st: dict, lasts: dict[str, float]) -> float:
@@ -110,8 +113,7 @@ def run_fast_once(cfg: Config, broker, now: datetime | None = None,
     if now < open_dt or now >= close_dt:
         return {"status": "market_closed"}
 
-    if st.get("day") != today:  # new day: reset counters, carry nothing overnight
-        st.update({"day": today, "trades_today": 0, "stopped_today": False})
+    new_day = st.get("day") != today
 
     if f.universe_mode == "most_active":
         universe = broker.most_actives(f.universe_size)
@@ -120,6 +122,17 @@ def run_fast_once(cfg: Config, broker, now: datetime | None = None,
         universe = f.universe
     bars = broker.intraday_5min(universe)  # {sym: df[t,o,h,l,c]}
     lasts = {s: float(df["c"].iloc[-1]) for s, df in bars.items() if len(df)}
+
+    if new_day:
+        # If a scheduler miss ever left positions overnight, close them at
+        # the first tick of the new day — the stated invariant is flat
+        # overnight, and yesterday's OR stops are meaningless today.
+        # (Adversarial review 2026-08-30, finding 5 — confirmed.)
+        for sym in list(st["positions"]):
+            px = lasts.get(sym, st["positions"][sym]["last_px"])
+            _fill(f, st, ledger, "sell", sym, px,
+                  st["positions"][sym]["qty"], "overnight_flatten")
+        st.update({"day": today, "trades_today": 0, "stopped_today": False})
     if st.get("day_start_equity") is None or st.get("day") != today or \
        "day_equity_set" not in st:
         st["day_start_equity"] = _mark_equity(st, lasts)
