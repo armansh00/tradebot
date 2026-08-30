@@ -1,1 +1,0 @@
-run: market_closed

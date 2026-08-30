@@ -21,7 +21,7 @@ from pathlib import Path
 FILES = ["config.yaml", "src/tradebot/risk.py", "src/tradebot/run.py",
          "src/tradebot/fastarm.py", "src/tradebot/strategy.py",
          "src/tradebot/signals.py", "src/tradebot/broker.py",
-         "src/tradebot/compare.py"]
+         "src/tradebot/compare.py", "src/tradebot/ledger.py"]
 
 BRIEF = """You are an adversarial code reviewer for a small automated
 paper-trading bot. Your ONLY job is to find defects. Assume the author is

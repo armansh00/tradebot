@@ -3,7 +3,7 @@ on:
   schedule:
     - cron: "0 12 * * 0"        # Sundays 12:00 UTC — weekly audit
   push:
-    paths: ["src/**", "config.yaml"]   # and after any strategy/risk change
+    paths: ["src/**", "scripts/**", "config.yaml"]   # and after any strategy/risk change
   workflow_dispatch: {}
 
 permissions:
