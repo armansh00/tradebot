@@ -53,3 +53,22 @@ def test_chat_answers_why_from_ledger(cfg, monkeypatch):
     assert "HOLDING SPY" in why and "momentum" in why
     why_gld = answer(cfg, "why GLD")
     assert "NOT holding" in why_gld
+
+
+def test_book_cap_trades_fifty_inside_hundred_k(cfg):
+    from conftest import FakeBroker, trending_series
+    closes = {s: trending_series(seed=i) for i, s in enumerate(cfg.universe)}
+    b = FakeBroker(closes, equity=100_000.0)
+    result = run_once(cfg, b, force=True)
+    assert result["status"] == "ok"
+    total = sum(o["notional"] for o in b.submitted)
+    assert 40 < total <= 50.0                    # sized to the $50 book
+    assert all(o["notional"] <= cfg.risk.max_order_notional for o in b.submitted)
+
+
+def test_book_cap_rebaselines_after_dashboard_reset(cfg):
+    from tradebot.risk import RiskManager
+    risk = RiskManager(cfg, Ledger(cfg.ledger_path))
+    assert risk.book_equity(100_000.0) == 50.0   # baseline anchors at 100k
+    assert risk.book_equity(100_010.0) == 60.0   # bot P&L flows through
+    assert risk.book_equity(50.0) == 50.0        # account reset detected, re-anchored

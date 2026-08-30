@@ -23,6 +23,23 @@ class RiskManager:
             self.cfg.halt_path.unlink()
         self.ledger.write("halt_cleared")
 
+    # ---- book cap: trade a fixed-size book inside a larger account ---
+    def book_equity(self, raw: float) -> float:
+        """If book_cap is set, the bot's tradable book is cap + its own P&L,
+        anchored to a baseline recorded on first capped run. A collapse of
+        account equity to less than half the baseline is treated as an
+        account reset and re-anchors the baseline."""
+        cap = getattr(self.cfg.risk, "book_cap", 0.0) or 0.0
+        if cap <= 0:
+            return raw
+        state = self._state()
+        baseline = state.get("book_baseline")
+        if baseline is None or raw < baseline * 0.5:
+            baseline = raw
+            state["book_baseline"] = baseline
+            self._save_state(state)
+        return round(min(cap + (raw - baseline), raw), 2)
+
     # ---- drawdown kill switch ---------------------------------------
     def _state(self) -> dict:
         if self.cfg.state_path.exists():

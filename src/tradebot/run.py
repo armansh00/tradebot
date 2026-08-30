@@ -23,7 +23,7 @@ def run_once(cfg: Config, broker, force: bool = False) -> dict:
         ledger.write("run_skipped", reason="market_closed")
         return {"status": "market_closed"}
 
-    equity = broker.equity()
+    equity = risk.book_equity(broker.equity())
     positions = broker.positions()
 
     # drawdown kill switch BEFORE any new orders

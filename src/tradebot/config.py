@@ -20,6 +20,7 @@ class StrategyCfg:
 @dataclass
 class RiskCfg:
     max_order_notional: float
+    book_cap: float
     max_positions: int
     max_drawdown_pct: float
     halt_file: str
@@ -94,7 +95,7 @@ def load_config(root: str | os.PathLike | None = None) -> Config:
     return Config(
         universe=[s.upper() for s in raw["universe"]],
         strategy=StrategyCfg(**raw["strategy"]),
-        risk=RiskCfg(**raw["risk"]),
+        risk=RiskCfg(**{"book_cap": 0.0, **raw["risk"]}),
         evaluation=EvalCfg(**raw["evaluation"]),
         fast=FastCfg(**{**raw["fast"],
                         "universe": [x.upper() for x in raw["fast"]["universe"]]}),

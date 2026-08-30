@@ -14,6 +14,7 @@ strategy:
   min_order_notional: 2.0 # ignore rebalance dust under $2
 
 risk:
+  book_cap: 50.0             # bot trades this book size regardless of account equity (0 = whole account)
   max_order_notional: 30.0   # no single order above $30
   max_positions: 2
   max_drawdown_pct: 10.0     # equity 10% below high-water mark -> flatten + halt
