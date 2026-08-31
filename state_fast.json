@@ -1,0 +1,24 @@
+{
+  "cash": -0.012493750000000858,
+  "positions": {
+    "TSLA": {
+      "qty": 0.0681124673060157,
+      "entry_px": 367.22352,
+      "or_low": 347.15,
+      "last_px": 367.04
+    },
+    "NVDA": {
+      "qty": 0.11355115766512916,
+      "entry_px": 220.1650275,
+      "or_low": 216.21,
+      "last_px": 220.055
+    }
+  },
+  "high_water_mark": 50.0,
+  "day": "2026-08-31",
+  "day_start_equity": 50.0,
+  "trades_today": 2,
+  "stopped_today": false,
+  "halted": false,
+  "day_equity_set": "2026-08-31"
+}

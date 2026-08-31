@@ -1,0 +1,18 @@
+{
+  "cash": 24.9625,
+  "positions": {
+    "TSLL": {
+      "qty": 2.5176233635448138,
+      "entry_px": 9.944895,
+      "or_low": 8.9,
+      "last_px": 9.93
+    }
+  },
+  "high_water_mark": 50.0,
+  "day": "2026-08-31",
+  "day_start_equity": 50.0,
+  "trades_today": 1,
+  "stopped_today": false,
+  "halted": false,
+  "day_equity_set": "2026-08-31"
+}

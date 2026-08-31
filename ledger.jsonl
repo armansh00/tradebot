@@ -1,2 +1,9 @@
 {"ts": "2026-08-29T23:21:50+00:00", "type": "run_skipped", "reason": "market_closed"}
 {"ts": "2026-08-30T00:18:36+00:00", "type": "run_skipped", "reason": "market_closed"}
+{"ts": "2026-08-31T16:00:38+00:00", "type": "session", "status": "start", "started": "2026-08-31T16:00:38.300147+00:00", "market_open": "2026-08-31T13:30:00+00:00", "market_close": "2026-08-31T20:00:00+00:00", "deadline": "2026-08-31T21:40:38.300147+00:00", "ticks_planned": 14, "late_minutes": 150.6}
+{"ts": "2026-08-31T16:00:38+00:00", "type": "tick_missed", "scheduled": "2026-08-31T13:32:00+00:00", "kind": "slow", "late_minutes": 148.6, "reason": "process_started_after_tick"}
+{"ts": "2026-08-31T16:00:38+00:00", "type": "tick_missed", "scheduled": "2026-08-31T14:05:00+00:00", "kind": "fast", "late_minutes": 115.6, "reason": "process_started_after_tick"}
+{"ts": "2026-08-31T16:00:38+00:00", "type": "tick_missed", "scheduled": "2026-08-31T14:35:00+00:00", "kind": "fast", "late_minutes": 85.6, "reason": "process_started_after_tick"}
+{"ts": "2026-08-31T16:00:38+00:00", "type": "tick_missed", "scheduled": "2026-08-31T15:05:00+00:00", "kind": "fast", "late_minutes": 55.6, "reason": "process_started_after_tick"}
+{"ts": "2026-08-31T16:00:38+00:00", "type": "tick_missed", "scheduled": "2026-08-31T15:35:00+00:00", "kind": "fast", "late_minutes": 25.6, "reason": "process_started_after_tick"}
+{"ts": "2026-08-31T16:05:00+00:00", "type": "tick", "kind": "fast", "scheduled": "2026-08-31T16:05:00+00:00", "status": {"fast": "ok", "movers": "ok"}}

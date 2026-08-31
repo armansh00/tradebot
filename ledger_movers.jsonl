@@ -1,0 +1,4 @@
+{"ts": "2026-08-31T16:05:00+00:00", "type": "universe", "arm": "movers", "day": "2026-08-31", "symbols": ["VVOS", "PASW", "CLGN", "AIM", "RDHL", "PCG", "TSLL", "SOAR", "NVD", "COOT"]}
+{"ts": "2026-08-31T16:05:00+00:00", "type": "fast_order", "side": "buy", "symbol": "TSLL", "px": 9.9449, "qty": 2.517623, "notional": 25.0, "modeled_cost": 0.0375, "reason": "breakout +3.12% above OR high 9.63"}
+{"ts": "2026-08-31T16:05:00+00:00", "type": "fast_decision", "arm": "movers", "or_levels": {"VVOS": [0.46, 0.36], "PASW": [0.15, 0.13], "CLGN": [0.89, 0.36], "AIM": [0.37, 0.28], "RDHL": [1.6, 1.11], "PCG": [13.7, 13.09], "TSLL": [9.63, 8.9], "SOAR": [0.26, 0.24], "NVD": [4.11, 3.99], "COOT": [0.61, 0.55]}, "candidates": ["TSLL"], "entered": ["TSLL"], "trades_today": 1}
+{"ts": "2026-08-31T16:05:00+00:00", "type": "fast_run", "arm": "movers", "equity": 49.9625, "day": "2026-08-31", "day_pnl_pct": -0.075, "positions": {"TSLL": 25.0}, "cash": 24.96}
