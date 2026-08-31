@@ -10,6 +10,12 @@ on:
   pull_request:
   workflow_dispatch: {}
 
+# Public repo: fork PRs run this workflow. No secrets are referenced and the
+# token is pinned read-only, so untrusted code cannot reach the account or
+# write to the repo.
+permissions:
+  contents: read
+
 jobs:
   pytest:
     runs-on: ubuntu-latest

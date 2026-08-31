@@ -1,5 +1,15 @@
 # tradebot
 
+**What this is not.** Not investment advice, not a product, not a strategy
+anyone should run with money. It is a pre-registered experiment in whether
+three trading cadences can be told apart from noise on a $50 paper account
+inside eight weeks, run by a physician-researcher as a methods exercise. The
+strategies are textbook and deliberately unoriginal; the interesting part is
+the governance — fixed criteria written before the data, an append-only
+ledger, a cross-vendor adversarial audit, and an honest record of every tick
+the system missed. Expect it to fail its own criteria. That is a result, not
+a bug. No warranty of any kind.
+
 A rules-based paper-trading bot with an explainable chat interface —
 now a **two-arm experiment**: slow (dual momentum, weekly-ish) vs
 fast (intraday opening-range breakout, multiple trades/day).
