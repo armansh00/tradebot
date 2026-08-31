@@ -6,6 +6,43 @@ from .config import load_config
 from .ledger import Ledger
 
 
+
+def _build_brokers(cfg, ledger=None):
+    """One broker per arm, degrading to simulated fills rather than refusing
+    to trade.
+
+    Broker fills need a separate paper account per arm; without one the arms
+    would pool into a single book and every comparison would be quietly
+    wrong. But a missing secret must not silently cancel a trading day
+    either. So: if an intraday arm has no credentials of its own, or resolves
+    to the same account as another arm, that arm falls back to the simulated
+    engine it used before 2026-08-31 and says so in the ledger. The
+    experiment continues on the weaker method, visibly, instead of stopping.
+    """
+    from .broker import AlpacaBroker
+    slow = AlpacaBroker(*cfg.creds("slow"))
+    brokers = {"slow": slow}
+    seen = {slow.account_number(): "slow"}
+    for arm in ("fast", "movers"):
+        arm_cfg = getattr(cfg, arm)
+        try:
+            b = AlpacaBroker(*cfg.creds(arm))
+            number = b.account_number()
+            if number in seen:
+                raise RuntimeError(
+                    f"shares account {number} with the {seen[number]} arm")
+            seen[number] = arm
+            brokers[arm] = b
+        except Exception as exc:
+            arm_cfg.fills_mode = "simulated"
+            brokers[arm] = slow          # market data only; no orders sent
+            msg = f"{arm}: no separate account ({exc}) -> simulated fills"
+            print(f"WARNING {msg}")
+            if ledger is not None:
+                ledger.write("fills_mode_fallback", arm=arm, reason=str(exc))
+    return brokers
+
+
 def main(argv: list[str] | None = None) -> int:
     args = argv if argv is not None else sys.argv[1:]
     cmd = args[0] if args else "help"
@@ -68,12 +105,13 @@ def main(argv: list[str] | None = None) -> int:
             load_dotenv(cfg.root / ".env")
         except ImportError:
             pass
-        brokers = {a: AlpacaBroker(*cfg.creds(a))
-                   for a in ("slow", "fast", "movers")}
-        numbers = assert_distinct_accounts(brokers)
-        for arm, b in brokers.items():
-            print(f"{arm:7} account {numbers[arm]}  equity ${b.equity():,.2f}  "
-                  f"cash ${b.cash():,.2f}  positions {list(b.positions_detail())}")
+        brokers = _build_brokers(cfg)
+        for arm in ("slow", "fast", "movers"):
+            b = brokers[arm]
+            mode = "broker" if arm == "slow" else getattr(cfg, arm).fills_mode
+            print(f"{arm:7} account {b.account_number()}  "
+                  f"equity ${b.equity():,.2f}  cash ${b.cash():,.2f}  "
+                  f"fills={mode}  positions {list(b.positions_detail())}")
         return 0
 
     if cmd == "session":
@@ -83,11 +121,8 @@ def main(argv: list[str] | None = None) -> int:
         except ImportError:
             pass
         import subprocess
-        from .broker import AlpacaBroker, assert_distinct_accounts
         from .session import run_session
-        brokers = {a: AlpacaBroker(*cfg.creds(a))
-                   for a in ("slow", "fast", "movers")}
-        assert_distinct_accounts(brokers)
+        brokers = _build_brokers(cfg, Ledger(cfg.ledger_path))
         hook = None
         if os.environ.get("TRADEBOT_AUTOCOMMIT") == "1":
             script = cfg.root / "scripts" / "commit_state.sh"

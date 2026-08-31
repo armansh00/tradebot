@@ -141,3 +141,48 @@ def test_arms_sharing_an_account_is_refused_before_the_open(cfg):
         {"fast": "PA1", "movers": "PA2"}
     with pytest.raises(BrokerError, match="share a paper account"):
         assert_distinct_accounts({"fast": a, "movers": same})
+
+
+def test_missing_arm_account_degrades_to_simulated_rather_than_stopping(cfg, tmp_path, monkeypatch):
+    """A missing or duplicated secret must not silently cancel a trading day.
+    The arm drops to the weaker method and the ledger says so."""
+    import tradebot.cli as cli
+    from tradebot.ledger import Ledger
+
+    class OneAccount:
+        def __init__(self, key_env, secret_env):
+            if key_env != "ALPACA_API_KEY":
+                raise RuntimeError(f"{key_env} not set")
+            self.n = "PA-ONLY"
+
+        def account_number(self):
+            return self.n
+
+    monkeypatch.setattr("tradebot.broker.AlpacaBroker", OneAccount)
+    ledger = Ledger(cfg.ledger_path)
+    brokers = cli._build_brokers(cfg, ledger)
+
+    assert cfg.fast.fills_mode == "simulated"
+    assert cfg.movers.fills_mode == "simulated"
+    assert brokers["fast"] is brokers["slow"]        # data only, no orders
+    import json
+    events = [json.loads(l) for l in cfg.ledger_path.read_text().splitlines()]
+    assert {e["arm"] for e in events if e["type"] == "fills_mode_fallback"} == \
+        {"fast", "movers"}
+
+
+def test_two_arms_on_one_account_is_caught_not_pooled(cfg, monkeypatch):
+    """The dangerous case: credentials that work but point at the same book."""
+    import tradebot.cli as cli
+
+    class SameAccount:
+        def __init__(self, *_):
+            pass
+
+        def account_number(self):
+            return "PA-SHARED"
+
+    monkeypatch.setattr("tradebot.broker.AlpacaBroker", SameAccount)
+    cli._build_brokers(cfg)
+    assert cfg.fast.fills_mode == "simulated"        # refused, not pooled
+    assert cfg.movers.fills_mode == "simulated"
