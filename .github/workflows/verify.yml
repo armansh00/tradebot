@@ -1,0 +1,30 @@
+name: verify-accounts
+
+# Confirms each arm resolves to its own paper account with the balance it is
+# supposed to have. Run it after changing any ALPACA_* secret. Prints account
+# numbers, equity, cash and holdings; fails if two arms share an account.
+
+on:
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install -r requirements.txt
+      - name: Verify accounts
+        env:
+          ALPACA_SLOW_KEY: ${{ secrets.ALPACA_SLOW_KEY }}
+          ALPACA_SLOW_SECRET: ${{ secrets.ALPACA_SLOW_SECRET }}
+          ALPACA_FAST_KEY: ${{ secrets.ALPACA_FAST_KEY }}
+          ALPACA_FAST_SECRET: ${{ secrets.ALPACA_FAST_SECRET }}
+          ALPACA_MOVERS_KEY: ${{ secrets.ALPACA_MOVERS_KEY }}
+          ALPACA_MOVERS_SECRET: ${{ secrets.ALPACA_MOVERS_SECRET }}
+        run: PYTHONPATH=src python -m tradebot verify
