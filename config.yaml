@@ -34,6 +34,7 @@ fast:
   universe: [SPY, QQQ, AAPL, MSFT, NVDA, TSLA, AMZN, META]
   start_cash: 50.0
   or_minutes: 30            # opening range = first 30 minutes
+  tick_minutes: 30          # tick cadence inside the trading session
   top_k: 2                  # at most 2 concurrent positions
   cost_bps_per_side: 5      # modeled half-spread + slippage per side (10 bps round trip)
   max_trades_per_day: 6     # entry cap

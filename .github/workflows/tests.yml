@@ -1,0 +1,22 @@
+name: tests
+
+# The suite had never run anywhere but a laptop. A green Actions page that
+# says nothing about whether the code still works is decoration.
+
+on:
+  push:
+    branches: [main]
+    paths: ["src/**", "tests/**", "config.yaml", "requirements.txt"]
+  pull_request:
+  workflow_dispatch: {}
+
+jobs:
+  pytest:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install -r requirements.txt pytest
+      - run: PYTHONPATH=src python -m pytest tests/ -q

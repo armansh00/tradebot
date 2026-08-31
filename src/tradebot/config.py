@@ -40,6 +40,7 @@ class FastCfg:
     universe_mode: str = "static"      # "static" | "most_active"
     universe_size: int = 10
     min_price: float = 5.0
+    tick_minutes: int = 30             # in-process tick cadence (see session.py)
 
 
 @dataclass

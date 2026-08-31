@@ -1,3 +1,6 @@
+import pathlib
+import shutil
+
 import numpy as np
 import pandas as pd
 import pytest
@@ -48,8 +51,12 @@ def falling_series(n=300, start=100.0, seed=2):
     return trending_series(n=n, start=start, drift=-0.003, seed=seed)
 
 
+REPO_ROOT = pathlib.Path(__file__).resolve().parent.parent
+
+
 @pytest.fixture
 def cfg(tmp_path):
-    import shutil
-    shutil.copy("/home/claude/tradebot/config.yaml", tmp_path / "config.yaml")
+    # Repo-relative, not an absolute path from whichever machine wrote it:
+    # the suite has to run identically on a laptop and on a CI runner.
+    shutil.copy(REPO_ROOT / "config.yaml", tmp_path / "config.yaml")
     return load_config(tmp_path)

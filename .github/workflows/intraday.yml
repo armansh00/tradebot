@@ -1,10 +1,9 @@
 name: fast-arm-intraday
+# SUPERSEDED 2026-08-31 by session.yml. The 30-minute cron ticks this
+# workflow relied on were not delivered by GitHub's scheduler (see session.py).
+# Kept for manual recovery of a single tick; no longer runs on a schedule.
+
 on:
-  schedule:
-    # Every 30 min through the US session (UTC; DST shifts it 1h in winter —
-    # harmless, the tick checks the clock and skips outside market hours).
-    - cron: "5,35 14-20 * * 1-5"
-    - cron: "50 19,20 * * 1-5"
   workflow_dispatch: {}
 
 permissions:

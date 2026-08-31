@@ -1,0 +1,78 @@
+name: trading-session
+
+# GitHub's `schedule` is best-effort and has been measured running hours late
+# on this repo (2026-08-31: the 13:40 and 14:05 UTC ticks never fired at all;
+# the Sunday review cron ran 3h50m late). So cron is asked for one thing only —
+# start a process sometime this morning — and the process does its own timing
+# off the exchange calendar. Legs 2 and 3 exist because a hosted job is capped
+# at 6 hours; each picks up where the previous handed off, and exits in seconds
+# if the session is already over. Steps are duplicated rather than shared:
+# GitHub Actions does not support YAML anchors.
+
+on:
+  schedule:
+    - cron: "30 9 * * 1-5"    # 09:30 UTC — four hours of slack before the open
+  workflow_dispatch: {}
+
+permissions:
+  contents: write
+
+concurrency:
+  group: tradebot-session
+  cancel-in-progress: false
+
+jobs:
+  leg1:
+    runs-on: ubuntu-latest
+    timeout-minutes: 350
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install -r requirements.txt
+      - name: Trading session (paper account)
+        env:
+          ALPACA_API_KEY: ${{ secrets.ALPACA_API_KEY }}
+          ALPACA_SECRET_KEY: ${{ secrets.ALPACA_SECRET_KEY }}
+          TRADEBOT_AUTOCOMMIT: "1"
+          TRADEBOT_SESSION_DEADLINE_MIN: "340"
+        run: PYTHONPATH=src python -m tradebot session
+
+  leg2:
+    needs: leg1
+    if: always()
+    runs-on: ubuntu-latest
+    timeout-minutes: 350
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install -r requirements.txt
+      - name: Trading session (paper account)
+        env:
+          ALPACA_API_KEY: ${{ secrets.ALPACA_API_KEY }}
+          ALPACA_SECRET_KEY: ${{ secrets.ALPACA_SECRET_KEY }}
+          TRADEBOT_AUTOCOMMIT: "1"
+          TRADEBOT_SESSION_DEADLINE_MIN: "340"
+        run: PYTHONPATH=src python -m tradebot session
+
+  leg3:
+    needs: leg2
+    if: always()
+    runs-on: ubuntu-latest
+    timeout-minutes: 350
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install -r requirements.txt
+      - name: Trading session (paper account)
+        env:
+          ALPACA_API_KEY: ${{ secrets.ALPACA_API_KEY }}
+          ALPACA_SECRET_KEY: ${{ secrets.ALPACA_SECRET_KEY }}
+          TRADEBOT_AUTOCOMMIT: "1"
+          TRADEBOT_SESSION_DEADLINE_MIN: "340"
+        run: PYTHONPATH=src python -m tradebot session

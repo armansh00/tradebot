@@ -131,3 +131,39 @@ python -m pytest tests/ -q     # 23 tests, offline, fake brokers for both arms
 Not investment advice; a personal research tool. Expect the strategy to
 trail buy-and-hold in strong bull markets — trend filters buy insurance
 against deep drawdowns and pay for it in whipsaws.
+
+## Execution layer (revised 2026-08-31)
+
+The first live weekday exposed a defect in the harness, not the strategy.
+GitHub's `schedule` event is best-effort: on 2026-08-31 the 13:40 UTC daily
+tick and the 14:05 / 14:35 / 15:05 UTC intraday ticks were never delivered at
+all, and the previous day's review cron ran 3h50m behind its 12:00 UTC slot.
+Nothing errored. The Actions page was clean. The account simply sat flat
+through the open.
+
+For a daily rebalance that is an annoyance. For an opening-range arm it is
+fatal — a tick that fires at 13:00 ET is not a late version of the 10:05 tick,
+it is a different experiment wearing its name.
+
+So the cadence moved out of cron and into the process:
+
+- `session.yml` fires once at 09:30 UTC, four hours ahead of the open, purely
+  to get a process started. `python -m tradebot session` then reads the
+  exchange calendar (half days included), sleeps to the open, and runs the
+  pre-registered cadence off its own clock.
+- Three chained legs, because a hosted job is capped at six hours. Each leg
+  hands off at 5h40m and the next resumes from the ledger; legs that find the
+  session already over exit in seconds.
+- Every tick is committed as it happens, so a killed job cannot take the day's
+  record with it.
+- Missed ticks are ledger events (`tick_missed`, `tick_error`, `session
+  handoff`), never silence. The count of executed vs. planned ticks is part of
+  the evaluation record, and a day that lost its morning is disclosed rather
+  than averaged away.
+
+`intraday.yml` no longer runs on a schedule and is kept only for manually
+replaying a single tick. `daily.yml` keeps its cron as a cheap backup for the
+slow arm — `run_once` is idempotent per day, so a duplicate is a no-op.
+
+The strategy parameters did not change. This is instrument repair, logged
+here so the 8-week window is read with the right execution history attached.

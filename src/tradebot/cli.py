@@ -1,5 +1,6 @@
 """python -m tradebot <command>"""
 from __future__ import annotations
+import os
 import sys
 from .config import load_config
 from .ledger import Ledger
@@ -43,6 +44,24 @@ def main(argv: list[str] | None = None) -> int:
                  if result["status"] == "ok" else ""))
         return 0
 
+    if cmd == "session":
+        try:
+            from dotenv import load_dotenv
+            load_dotenv(cfg.root / ".env")
+        except ImportError:
+            pass
+        import subprocess
+        from .broker import AlpacaBroker
+        from .session import run_session
+        hook = None
+        if os.environ.get("TRADEBOT_AUTOCOMMIT") == "1":
+            script = cfg.root / "scripts" / "commit_state.sh"
+            hook = lambda: subprocess.run(["bash", str(script)], cwd=cfg.root)
+        result = run_session(cfg, AlpacaBroker(), on_tick_done=hook)
+        print(f"session: {result['status']} "
+              f"(ran {result['ran']}, missed {result['missed']})")
+        return 0
+
     if cmd == "compare":
         from .compare import compare_report
         print(compare_report(cfg))
@@ -71,7 +90,7 @@ def main(argv: list[str] | None = None) -> int:
         return 0
 
     print("Usage: python -m tradebot "
-          "[run|run-fast|run-movers|chat|status|pnl|why SYM|decisions|report|evaluate|compare|kill|resume]")
+          "[run|run-fast|run-movers|session|chat|status|pnl|why SYM|decisions|report|evaluate|compare|kill|resume]")
     return 0 if cmd == "help" else 1
 
 
