@@ -9,9 +9,20 @@ name: trading-session
 # if the session is already over. Steps are duplicated rather than shared:
 # GitHub Actions does not support YAML anchors.
 
+# Five independent start attempts, not one. GitHub drops individual scheduled
+# events under load rather than disabling the workflow, so five chances beat
+# one. Minutes are deliberately off the hour — top-of-hour is the documented
+# congestion peak. Duplicates are free: `concurrency` keeps at most one run,
+# _completed_ticks() skips work already done, and a start after the close
+# exits in seconds. The spread also absorbs DST, when the open moves from
+# 13:30 to 14:30 UTC.
 on:
   schedule:
-    - cron: "30 9 * * 1-5"    # 09:30 UTC — four hours of slack before the open
+    - cron: "17 8 * * 1-5"
+    - cron: "23 10 * * 1-5"
+    - cron: "41 11 * * 1-5"
+    - cron: "7 13 * * 1-5"     # 23 min before the open
+    - cron: "34 13 * * 1-5"    # just after — still saves the intraday ticks
   workflow_dispatch: {}
 
 permissions:
