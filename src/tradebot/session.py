@@ -19,12 +19,30 @@ import time
 import traceback
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
+from zoneinfo import ZoneInfo
 
 from .config import Config
 from .ledger import Ledger
 
 SLOW = "slow"
 FAST = "fast"
+ET = ZoneInfo("America/New_York")
+
+
+def to_session_utc(day, value, tz=ET) -> datetime:
+    """Exchange-local open/close -> UTC, whatever shape the SDK hands back.
+
+    alpaca-py has returned `datetime.time` in some versions and a naive
+    `datetime` in others; a tz-aware datetime is possible too. Guessing wrong
+    here does not raise in an obvious place — it silently shifts the whole
+    trading day — so the coercion is explicit and tested.
+    """
+    if isinstance(value, datetime):
+        dt = value if value.tzinfo is None else value.astimezone(tz).replace(tzinfo=None)
+        dt = datetime.combine(day, dt.time())
+    else:
+        dt = datetime.combine(day, value)
+    return dt.replace(tzinfo=tz).astimezone(timezone.utc)
 
 
 @dataclass(frozen=True)

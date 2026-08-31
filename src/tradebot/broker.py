@@ -36,18 +36,15 @@ class AlpacaBroker:
         if today is not a trading day. Calendar, not a hardcoded 9:30-16:00:
         half days (day after Thanksgiving, Christmas Eve) close at 13:00 ET and
         a bot that does not know that carries positions it meant to flatten."""
-        from datetime import datetime, timezone
-        from zoneinfo import ZoneInfo
+        from datetime import datetime
         from alpaca.trading.requests import GetCalendarRequest
-        et = ZoneInfo("America/New_York")
-        today = datetime.now(et).date()
+        from .session import ET, to_session_utc
+        today = datetime.now(ET).date()
         days = self._trading.get_calendar(GetCalendarRequest(start=today, end=today))
         if not days or days[0].date != today:
             return None
         d = days[0]
-        to_utc = lambda t: (datetime.combine(d.date, t)
-                            .replace(tzinfo=et).astimezone(timezone.utc))
-        return to_utc(d.open), to_utc(d.close)
+        return to_session_utc(d.date, d.open), to_session_utc(d.date, d.close)
 
     def now_et(self):
         from datetime import datetime

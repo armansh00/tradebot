@@ -154,3 +154,26 @@ def test_leg_two_resumes_a_handoff_without_inventing_missed_ticks(cfg, patched):
     assert second["missed"] == 0                     # nothing was actually lost
     assert second["resumed"] == first["ran"]
     assert first["ran"] + second["ran"] == len(build_schedule(OPEN, CLOSE, cfg))
+
+
+@pytest.mark.parametrize("shape", ["time", "naive_datetime", "aware_datetime"])
+def test_calendar_open_close_coerces_to_utc_whatever_the_sdk_returns(shape):
+    """alpaca-py has returned `time` in some versions and `datetime` in others.
+    Guessing wrong does not fail loudly — it moves the whole trading day."""
+    from datetime import date, time as dtime
+    from tradebot.session import ET, to_session_utc
+
+    day = date(2026, 9, 1)
+    value = {
+        "time": dtime(9, 30),
+        "naive_datetime": datetime(2026, 9, 1, 9, 30),
+        "aware_datetime": datetime(2026, 9, 1, 9, 30, tzinfo=ET),
+    }[shape]
+    assert to_session_utc(day, value) == datetime(2026, 9, 1, 13, 30, tzinfo=timezone.utc)
+
+
+def test_half_day_close_survives_the_same_coercion():
+    from datetime import date, time as dtime
+    from tradebot.session import to_session_utc
+    assert to_session_utc(date(2026, 11, 27), dtime(13, 0)) == \
+        datetime(2026, 11, 27, 18, 0, tzinfo=timezone.utc)   # EST, not EDT
