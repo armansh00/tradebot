@@ -10,6 +10,10 @@ ledger, a cross-vendor adversarial audit, and an honest record of every tick
 the system missed. Expect it to fail its own criteria. That is a result, not
 a bug. No warranty of any kind.
 
+**Terms.** All rights reserved. Public for transparency and citation, not for
+reuse: read it, link it, quote it, cite it. Copying it into another project or
+redistributing it is not permitted. No license is granted by visibility alone.
+
 A rules-based paper-trading bot with an explainable chat interface —
 now a **two-arm experiment**: slow (dual momentum, weekly-ish) vs
 fast (intraday opening-range breakout, multiple trades/day).
