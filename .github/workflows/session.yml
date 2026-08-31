@@ -44,8 +44,12 @@ jobs:
       - run: pip install -r requirements.txt
       - name: Trading session (paper account)
         env:
-          ALPACA_API_KEY: ${{ secrets.ALPACA_API_KEY }}
-          ALPACA_SECRET_KEY: ${{ secrets.ALPACA_SECRET_KEY }}
+          ALPACA_SLOW_KEY: ${{ secrets.ALPACA_SLOW_KEY }}
+          ALPACA_SLOW_SECRET: ${{ secrets.ALPACA_SLOW_SECRET }}
+          ALPACA_FAST_KEY: ${{ secrets.ALPACA_FAST_KEY }}
+          ALPACA_FAST_SECRET: ${{ secrets.ALPACA_FAST_SECRET }}
+          ALPACA_MOVERS_KEY: ${{ secrets.ALPACA_MOVERS_KEY }}
+          ALPACA_MOVERS_SECRET: ${{ secrets.ALPACA_MOVERS_SECRET }}
           TRADEBOT_AUTOCOMMIT: "1"
           TRADEBOT_SESSION_DEADLINE_MIN: "340"
         run: PYTHONPATH=src python -m tradebot session
@@ -63,8 +67,12 @@ jobs:
       - run: pip install -r requirements.txt
       - name: Trading session (paper account)
         env:
-          ALPACA_API_KEY: ${{ secrets.ALPACA_API_KEY }}
-          ALPACA_SECRET_KEY: ${{ secrets.ALPACA_SECRET_KEY }}
+          ALPACA_SLOW_KEY: ${{ secrets.ALPACA_SLOW_KEY }}
+          ALPACA_SLOW_SECRET: ${{ secrets.ALPACA_SLOW_SECRET }}
+          ALPACA_FAST_KEY: ${{ secrets.ALPACA_FAST_KEY }}
+          ALPACA_FAST_SECRET: ${{ secrets.ALPACA_FAST_SECRET }}
+          ALPACA_MOVERS_KEY: ${{ secrets.ALPACA_MOVERS_KEY }}
+          ALPACA_MOVERS_SECRET: ${{ secrets.ALPACA_MOVERS_SECRET }}
           TRADEBOT_AUTOCOMMIT: "1"
           TRADEBOT_SESSION_DEADLINE_MIN: "340"
         run: PYTHONPATH=src python -m tradebot session
@@ -82,8 +90,12 @@ jobs:
       - run: pip install -r requirements.txt
       - name: Trading session (paper account)
         env:
-          ALPACA_API_KEY: ${{ secrets.ALPACA_API_KEY }}
-          ALPACA_SECRET_KEY: ${{ secrets.ALPACA_SECRET_KEY }}
+          ALPACA_SLOW_KEY: ${{ secrets.ALPACA_SLOW_KEY }}
+          ALPACA_SLOW_SECRET: ${{ secrets.ALPACA_SLOW_SECRET }}
+          ALPACA_FAST_KEY: ${{ secrets.ALPACA_FAST_KEY }}
+          ALPACA_FAST_SECRET: ${{ secrets.ALPACA_FAST_SECRET }}
+          ALPACA_MOVERS_KEY: ${{ secrets.ALPACA_MOVERS_KEY }}
+          ALPACA_MOVERS_SECRET: ${{ secrets.ALPACA_MOVERS_SECRET }}
           TRADEBOT_AUTOCOMMIT: "1"
           TRADEBOT_SESSION_DEADLINE_MIN: "340"
         run: PYTHONPATH=src python -m tradebot session

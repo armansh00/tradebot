@@ -19,7 +19,8 @@ def main(argv: list[str] | None = None) -> int:
             pass
         from .broker import AlpacaBroker
         from .run import run_once
-        result = run_once(cfg, AlpacaBroker(), force="--force" in args)
+        result = run_once(cfg, AlpacaBroker(*cfg.creds("slow")),
+                          force="--force" in args)
         print(f"run: {result['status']}")
         for o in result.get("orders", []):
             print(f"  {o['side'].upper()} ${o['notional']:.2f} {o['symbol']} "
@@ -37,11 +38,26 @@ def main(argv: list[str] | None = None) -> int:
         from .broker import AlpacaBroker
         from .fastarm import run_fast_once
         arm = "movers" if cmd == "run-movers" else "fast"
-        result = run_fast_once(cfg, AlpacaBroker(), arm=arm)
+        result = run_fast_once(cfg, AlpacaBroker(*cfg.creds(arm)), arm=arm)
         print(f"{arm} run: {result['status']}"
               + (f" equity ${result['equity']:.2f} "
                  f"positions {result['positions']}"
                  if result["status"] == "ok" else ""))
+        return 0
+
+    if cmd == "verify":
+        from .broker import AlpacaBroker, assert_distinct_accounts
+        try:
+            from dotenv import load_dotenv
+            load_dotenv(cfg.root / ".env")
+        except ImportError:
+            pass
+        brokers = {a: AlpacaBroker(*cfg.creds(a))
+                   for a in ("slow", "fast", "movers")}
+        numbers = assert_distinct_accounts(brokers)
+        for arm, b in brokers.items():
+            print(f"{arm:7} account {numbers[arm]}  equity ${b.equity():,.2f}  "
+                  f"cash ${b.cash():,.2f}  positions {list(b.positions_detail())}")
         return 0
 
     if cmd == "session":
@@ -51,13 +67,16 @@ def main(argv: list[str] | None = None) -> int:
         except ImportError:
             pass
         import subprocess
-        from .broker import AlpacaBroker
+        from .broker import AlpacaBroker, assert_distinct_accounts
         from .session import run_session
+        brokers = {a: AlpacaBroker(*cfg.creds(a))
+                   for a in ("slow", "fast", "movers")}
+        assert_distinct_accounts(brokers)
         hook = None
         if os.environ.get("TRADEBOT_AUTOCOMMIT") == "1":
             script = cfg.root / "scripts" / "commit_state.sh"
             hook = lambda: subprocess.run(["bash", str(script)], cwd=cfg.root)
-        result = run_session(cfg, AlpacaBroker(), on_tick_done=hook)
+        result = run_session(cfg, brokers, on_tick_done=hook)
         print(f"session: {result['status']} "
               f"(ran {result['ran']}, missed {result['missed']})")
         return 0
@@ -90,7 +109,7 @@ def main(argv: list[str] | None = None) -> int:
         return 0
 
     print("Usage: python -m tradebot "
-          "[run|run-fast|run-movers|session|chat|status|pnl|why SYM|decisions|report|evaluate|compare|kill|resume]")
+          "[run|run-fast|run-movers|session|verify|chat|status|pnl|why SYM|decisions|report|evaluate|compare|kill|resume]")
     return 0 if cmd == "help" else 1
 
 

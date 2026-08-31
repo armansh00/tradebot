@@ -1,3 +1,12 @@
+# Each arm trades its own $50 paper account. Before 2026-08-31 all three
+# shared one $100k account and the intraday arms only simulated their fills;
+# Alpaca now allows extra paper accounts with a chosen starting balance, so
+# the arms are genuinely separate books and every fill is a real order.
+accounts:
+  slow:   {key_env: ALPACA_SLOW_KEY,   secret_env: ALPACA_SLOW_SECRET}
+  fast:   {key_env: ALPACA_FAST_KEY,   secret_env: ALPACA_FAST_SECRET}
+  movers: {key_env: ALPACA_MOVERS_KEY, secret_env: ALPACA_MOVERS_SECRET}
+
 # tradebot configuration — every number here is pre-registered.
 # Changing strategy or risk parameters mid-test invalidates the paper test:
 # log a note in NOTES.md and restart the evaluation clock.
@@ -14,7 +23,7 @@ strategy:
   min_order_notional: 2.0 # ignore rebalance dust under $2
 
 risk:
-  book_cap: 50.0             # bot trades this book size regardless of account equity (0 = whole account)
+  book_cap: 0.0             # bot trades this book size regardless of account equity (0 = whole account)
   max_order_notional: 30.0   # no single order above $30
   max_positions: 2
   max_drawdown_pct: 10.0     # equity 10% below high-water mark -> flatten + halt
@@ -35,6 +44,7 @@ fast:
   start_cash: 50.0
   or_minutes: 30            # opening range = first 30 minutes
   tick_minutes: 30          # tick cadence inside the trading session
+  fills_mode: broker        # real paper orders; costs charged as a separate line
   top_k: 2                  # at most 2 concurrent positions
   cost_bps_per_side: 5      # modeled half-spread + slippage per side (10 bps round trip)
   max_trades_per_day: 6     # entry cap

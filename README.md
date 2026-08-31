@@ -181,3 +181,35 @@ slow arm — `run_once` is idempotent per day, so a duplicate is a no-op.
 
 The strategy parameters did not change. This is instrument repair, logged
 here so the 8-week window is read with the right execution history attached.
+
+## Fill model (revised 2026-08-31)
+
+Each arm trades its own $50 paper account and sends real orders.
+
+The earlier design had the intraday arms simulate their own fills. That was
+not a preference; all three arms shared one $100k paper account, and real
+orders would have pooled their positions into a single pile with no way to
+attribute a dollar of profit to the strategy that earned it. Alpaca now
+allows additional paper accounts with a chosen starting balance, which
+removes the constraint, so the arms are genuinely separate books and the
+account is the only record of what each holds. `assert_distinct_accounts`
+refuses to start if two arms ever resolve to the same account number — that
+misconfiguration would not raise anything on its own; it would just quietly
+invalidate the study.
+
+The modeled cost survives the change, for a documented reason. Alpaca's paper
+engine fills at the best available price and explicitly models no slippage,
+no spread, no market impact, no queue position and no latency. Free perfect
+execution flatters frequent trading precisely where these arms operate. So
+5 bps a side (15 for movers) is still charged, now as a separate accrued line
+rather than folded into the fill price: the account reports gross,
+`cost_accrued` converts it to net, and the pre-registered criterion reads net.
+`fills_mode: simulated` keeps the older self-contained engine available.
+
+Two consequences worth stating in advance. Order rejections are now possible
+and are recorded as `fast_rejected` rather than raised — a $50 cash account
+cannot recycle unsettled proceeds all day, and if settlement rules are what
+cap the fast arm's trade count, that is a finding rather than a fault. And
+with genuinely $50 accounts the `book_cap` baseline-anchoring workaround is
+switched off (`book_cap: 0`); the code and its regression tests remain, since
+the mechanism is still correct for anyone running inside a larger account.

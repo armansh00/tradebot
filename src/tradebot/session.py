@@ -95,14 +95,23 @@ def _completed_ticks(cfg: Config) -> set[str]:
     return done
 
 
-def _run_tick(cfg: Config, broker, kind: str) -> dict:
+def as_brokers(broker) -> dict:
+    """Each arm has its own account now. A bare broker (tests, or a single
+    account) is fanned out to all three."""
+    if isinstance(broker, dict):
+        return broker
+    return {SLOW: broker, "fast": broker, "movers": broker}
+
+
+def _run_tick(cfg: Config, brokers, kind: str) -> dict:
+    brokers = as_brokers(brokers)
     if kind == SLOW:
         from .run import run_once
-        return {"slow": run_once(cfg, broker)}
+        return {"slow": run_once(cfg, brokers[SLOW])}
     from .fastarm import run_fast_once
     return {
-        "fast": run_fast_once(cfg, broker, arm="fast"),
-        "movers": run_fast_once(cfg, broker, arm="movers"),
+        "fast": run_fast_once(cfg, brokers["fast"], arm="fast"),
+        "movers": run_fast_once(cfg, brokers["movers"], arm="movers"),
     }
 
 
@@ -124,7 +133,7 @@ def run_session(
         deadline_minutes = float(os.getenv("TRADEBOT_SESSION_DEADLINE_MIN", "340"))
     deadline = started + timedelta(minutes=deadline_minutes)
 
-    window = broker.session_today()
+    window = as_brokers(broker)[SLOW].session_today()
     if window is None:
         ledger.write("session", status="market_closed_today")
         return {"status": "market_closed_today", "ran": 0, "missed": 0, "resumed": 0}

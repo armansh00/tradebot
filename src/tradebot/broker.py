@@ -11,12 +11,22 @@ class BrokerError(RuntimeError):
 
 
 class AlpacaBroker:
-    def __init__(self):
-        key = os.environ.get("ALPACA_API_KEY")
-        secret = os.environ.get("ALPACA_SECRET_KEY")
+    """One instance per paper account.
+
+    Each experiment arm now has its own account, so credentials are a
+    constructor argument rather than a global. Two arms sharing an account
+    would silently pool their positions and make the whole comparison
+    meaningless — see `assert_distinct_accounts`.
+    """
+
+    def __init__(self, key_env: str = "ALPACA_API_KEY",
+                 secret_env: str = "ALPACA_SECRET_KEY"):
+        self.key_env, self.secret_env = key_env, secret_env
+        key = os.environ.get(key_env)
+        secret = os.environ.get(secret_env)
         base = os.environ.get("ALPACA_BASE_URL", "https://paper-api.alpaca.markets")
         if not key or not secret:
-            raise BrokerError("ALPACA_API_KEY / ALPACA_SECRET_KEY not set "
+            raise BrokerError(f"{key_env} / {secret_env} not set "
                               "(copy .env.example to .env and fill in paper keys)")
         if "paper" not in base:
             raise BrokerError("ALPACA_BASE_URL is not the paper endpoint. "
@@ -77,8 +87,26 @@ class AlpacaBroker:
     def equity(self) -> float:
         return float(self._trading.get_account().equity)
 
+    def cash(self) -> float:
+        return float(self._trading.get_account().cash)
+
+    def account_number(self) -> str:
+        return str(self._trading.get_account().account_number)
+
     def positions(self) -> dict[str, float]:
         return {p.symbol: float(p.market_value)
+                for p in self._trading.get_all_positions()}
+
+    def positions_detail(self) -> dict[str, dict]:
+        """Quantity and entry price per symbol, straight from the account.
+
+        The intraday arms used to keep their own idea of what they held. Two
+        sets of books drift, and the drift is silent. Now the account is the
+        only record of position, and the arm keeps nothing but its own
+        metadata (stop levels, trade counts)."""
+        return {p.symbol: {"qty": float(p.qty),
+                           "entry_px": float(p.avg_entry_price),
+                           "market_value": float(p.market_value)}
                 for p in self._trading.get_all_positions()}
 
     def daily_closes(self, symbols: list[str], days: int) -> dict[str, pd.Series]:
@@ -101,8 +129,8 @@ class AlpacaBroker:
         from alpaca.data.historical.screener import ScreenerClient
         from alpaca.data.requests import MostActivesRequest
         import os as _os
-        client = ScreenerClient(_os.environ["ALPACA_API_KEY"],
-                                _os.environ["ALPACA_SECRET_KEY"])
+        client = ScreenerClient(_os.environ[self.key_env],
+                                _os.environ[self.secret_env])
         resp = client.get_most_actives(MostActivesRequest(top=n))
         return [a.symbol for a in resp.most_actives][:n]
 
@@ -111,11 +139,42 @@ class AlpacaBroker:
             return {**order, "status": "dry_run"}
         from alpaca.trading.requests import MarketOrderRequest
         from alpaca.trading.enums import OrderSide, TimeInForce
+        kw = {"qty": order["qty"]} if order.get("qty") \
+            else {"notional": round(order["notional"], 2)}
         req = MarketOrderRequest(
             symbol=order["symbol"],
-            notional=round(order["notional"], 2),
             side=OrderSide.BUY if order["side"] == "buy" else OrderSide.SELL,
             time_in_force=TimeInForce.DAY,
+            **kw,
         )
         resp = self._trading.submit_order(req)
         return {**order, "status": str(resp.status), "broker_order_id": str(resp.id)}
+
+
+    def close(self, symbol: str) -> dict:
+        """Liquidate a position outright.
+
+        Exits go through close_position rather than a sell order sized from
+        our own idea of the quantity: the account knows exactly what it holds,
+        and a rounding difference would leave dust behind that the arm thinks
+        it has already sold."""
+        if self.dry_run:
+            return {"symbol": symbol, "side": "sell", "status": "dry_run"}
+        resp = self._trading.close_position(symbol)
+        return {"symbol": symbol, "side": "sell", "status": str(resp.status),
+                "broker_order_id": str(resp.id)}
+
+
+def assert_distinct_accounts(brokers: dict[str, object]) -> dict[str, str]:
+    """Refuse to start if two arms point at the same account.
+
+    A misconfigured secret would not raise anything — the arms would simply
+    trade into one pot and every comparison in the study would be garbage
+    while looking perfectly healthy. Fail loudly, before the open.
+    """
+    numbers: dict[str, str] = {}
+    for arm, broker in brokers.items():
+        numbers[arm] = broker.account_number()
+    if len(set(numbers.values())) != len(numbers):
+        raise BrokerError(f"arms share a paper account: {numbers}")
+    return numbers

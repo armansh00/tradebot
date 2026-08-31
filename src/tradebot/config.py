@@ -41,6 +41,7 @@ class FastCfg:
     universe_size: int = 10
     min_price: float = 5.0
     tick_minutes: int = 30             # in-process tick cadence (see session.py)
+    fills_mode: str = "broker"         # "broker" (real paper orders) | "simulated"
 
 
 @dataclass
@@ -65,6 +66,13 @@ class EvalCfg:
     max_manual_overrides: int
 
 
+DEFAULT_ACCOUNTS = {
+    "slow": {"key_env": "ALPACA_API_KEY", "secret_env": "ALPACA_SECRET_KEY"},
+    "fast": {"key_env": "ALPACA_API_KEY", "secret_env": "ALPACA_SECRET_KEY"},
+    "movers": {"key_env": "ALPACA_API_KEY", "secret_env": "ALPACA_SECRET_KEY"},
+}
+
+
 @dataclass
 class Config:
     universe: list[str]
@@ -75,7 +83,12 @@ class Config:
     movers: FastCfg
     fast_evaluation: FastEvalCfg
     movers_evaluation: MoversEvalCfg
+    accounts: dict = field(default_factory=lambda: dict(DEFAULT_ACCOUNTS))
     root: Path = field(default_factory=Path.cwd)
+
+    def creds(self, arm: str) -> tuple[str, str]:
+        a = self.accounts.get(arm, DEFAULT_ACCOUNTS[arm])
+        return a["key_env"], a["secret_env"]
 
     @property
     def ledger_path(self) -> Path:
@@ -123,5 +136,6 @@ def load_config(root: str | os.PathLike | None = None) -> Config:
         movers=FastCfg(**raw["movers"]),
         fast_evaluation=FastEvalCfg(**raw["fast_evaluation"]),
         movers_evaluation=MoversEvalCfg(**raw["movers_evaluation"]),
+        accounts={**DEFAULT_ACCOUNTS, **raw.get("accounts", {})},
         root=root_path,
     )

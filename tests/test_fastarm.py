@@ -1,5 +1,6 @@
 from datetime import datetime, timedelta
 from zoneinfo import ZoneInfo
+import pytest
 import numpy as np
 import pandas as pd
 from tradebot.fastarm import run_fast_once, opening_range
@@ -40,6 +41,13 @@ class FastFake:
         # only bars up to "now" are visible
         return {s: df[df["t"] <= self._now].reset_index(drop=True)
                 for s, df in self._frames.items() if s in symbols}
+
+
+@pytest.fixture(autouse=True)
+def _simulated(cfg):
+    """This module covers the self-contained simulated engine, which is still
+    a supported mode. Broker-mode fills live in test_broker_fills.py."""
+    cfg.fast.fills_mode = cfg.movers.fills_mode = "simulated"
 
 
 def _mk(cfg, pattern_map, hour, minute):

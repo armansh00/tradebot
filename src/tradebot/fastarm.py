@@ -1,12 +1,20 @@
-"""The experiment arm: intraday opening-range breakout with SIMULATED fills.
+"""The experiment arms: intraday opening-range breakout.
 
-Design choice, stated plainly: this arm does not send orders to the paper
-account. It runs a virtual $50 book against live market data and charges
-itself an explicit, configurable cost on every fill (half-spread + slippage,
-`cost_bps_per_side`). Paper-account fills flatter day trading by ignoring
-those costs; here the toll booth is on the books, itemized, every time.
-The question under test is whether trade frequency adds net return —
-so the costs of frequency must be visible, not hidden.
+Fills (revised 2026-08-31). This arm used to keep a virtual book and never
+touch the account, because all three arms shared one paper account and their
+positions would have pooled into an unattributable pile. Alpaca now allows
+additional paper accounts with a chosen starting balance, so each arm has its
+own $50 account and `fills_mode: broker` sends real orders. The account is the
+single record of what is held; this module keeps only its own metadata.
+
+The modeled cost survives the change and is the reason both modes exist.
+Alpaca's paper engine fills at the best available price and explicitly models
+no slippage, no spread, no market impact, no queue position — free perfect
+execution, which flatters frequent trading in exactly the names these arms
+trade. So the cost is still charged, as a separate accrued line rather than
+inside the fill: the account reports gross, `cost_accrued` converts it to net,
+and the pre-registered criterion reads the net number. `fills_mode: simulated`
+keeps the older self-contained engine for testing and comparison.
 
 Entry rule: after the opening range (first `or_minutes`), buy up to `top_k`
 symbols trading above their OR high, ranked by breakout strength.
@@ -37,7 +45,8 @@ def _arm(cfg: Config, arm: str):
 def _load_state(state_path, start_cash: float) -> dict:
     if state_path.exists():
         return json.loads(state_path.read_text())
-    return {"cash": start_cash, "positions": {},
+    return {"cash": start_cash, "positions": {}, "or_low": {},
+            "cost_accrued": 0.0,
             "high_water_mark": start_cash, "day": None,
             "day_start_equity": start_cash, "trades_today": 0,
             "stopped_today": False, "halted": False}
@@ -50,7 +59,22 @@ def _save_state(state_path, st: dict) -> None:
     os.replace(tmp, state_path)
 
 
-def _mark_equity(st: dict, lasts: dict[str, float]) -> float:
+def _live(f) -> bool:
+    return getattr(f, "fills_mode", "broker") == "broker"
+
+
+def _positions(f, broker, st) -> dict[str, dict]:
+    """What the arm holds. In broker mode the account is the only record."""
+    if _live(f):
+        return broker.positions_detail()
+    return st["positions"]
+
+
+def _mark_equity(f, broker, st: dict, lasts: dict[str, float]) -> float:
+    """Net equity: what the account says, less the costs a real venue would
+    have taken and this paper venue does not."""
+    if _live(f):
+        return round(broker.equity() - st.get("cost_accrued", 0.0), 4)
     eq = st["cash"]
     for sym, pos in st["positions"].items():
         eq += pos["qty"] * lasts.get(sym, pos["last_px"])
@@ -58,19 +82,49 @@ def _mark_equity(st: dict, lasts: dict[str, float]) -> float:
 
 
 def _fill(f, st: dict, ledger: Ledger, side: str, sym: str,
-          px: float, qty: float, reason: str) -> None:
-    """Simulated fill with explicit cost. Buys pay up, sells receive less."""
+          px: float, qty: float, reason: str, broker=None) -> bool:
+    """Execute one side. Returns False if the venue refused the order.
+
+    A rejection is a result, not an error: a $50 cash account genuinely
+    cannot recycle unsettled proceeds all day, and if that is what stops the
+    fast arm then that is the finding. It goes in the ledger and the arm
+    carries on."""
     bps = f.cost_bps_per_side / 1e4
+    cost = abs(qty * px * bps)
+
+    if _live(f):
+        if side == "buy":
+            result = broker.submit({"symbol": sym, "side": "buy",
+                                    "notional": round(qty * px, 2)})
+        else:
+            result = broker.close(sym)
+        status = str(result.get("status", "")).lower()
+        if "reject" in status or "cancel" in status:
+            ledger.write("fast_rejected", side=side, symbol=sym,
+                         status=result.get("status"), reason=reason)
+            return False
+        st["cost_accrued"] = round(st.get("cost_accrued", 0.0) + cost, 6)
+        if side == "buy":
+            st["or_low"][sym] = st["or_low"].get(sym)
+        else:
+            st["or_low"].pop(sym, None)
+        ledger.write("fast_order", side=side, symbol=sym, px=round(px, 4),
+                     qty=round(qty, 6), notional=round(qty * px, 2),
+                     modeled_cost=round(cost, 4), reason=reason,
+                     status=result.get("status"),
+                     broker_order_id=result.get("broker_order_id"))
+        return True
+
+    # simulated engine: cost is taken inside the fill price
     fill_px = px * (1 + bps) if side == "buy" else px * (1 - bps)
     gross = qty * px
-    cost = abs(qty * px * bps)
     if side == "buy":
         st["cash"] -= qty * fill_px
         st["positions"][sym] = {"qty": qty, "entry_px": fill_px,
-                                "or_low": st["positions"].get(sym, {}).get("or_low"),
                                 "last_px": px}
     else:
         pos = st["positions"].pop(sym, None)
+        st["or_low"].pop(sym, None)
         st["cash"] += qty * fill_px
         if pos:
             pnl = (fill_px - pos["entry_px"]) * qty
@@ -78,9 +132,11 @@ def _fill(f, st: dict, ledger: Ledger, side: str, sym: str,
                          entry_px=round(pos["entry_px"], 4),
                          exit_px=round(fill_px, 4), pnl=round(pnl, 4),
                          reason=reason)
+    st["cost_accrued"] = round(st.get("cost_accrued", 0.0) + cost, 6)
     ledger.write("fast_order", side=side, symbol=sym, px=round(fill_px, 4),
                  qty=round(qty, 6), notional=round(gross, 2),
                  modeled_cost=round(cost, 4), reason=reason)
+    return True
 
 
 # ---------- opening range -------------------------------------------------
@@ -128,30 +184,30 @@ def run_fast_once(cfg: Config, broker, now: datetime | None = None,
         # the first tick of the new day — the stated invariant is flat
         # overnight, and yesterday's OR stops are meaningless today.
         # (Adversarial review 2026-08-30, finding 5 — confirmed.)
-        for sym in list(st["positions"]):
-            px = lasts.get(sym, st["positions"][sym]["last_px"])
-            _fill(f, st, ledger, "sell", sym, px,
-                  st["positions"][sym]["qty"], "overnight_flatten")
+        for sym, pos in list(_positions(f, broker, st).items()):
+            px = lasts.get(sym, pos.get("last_px", pos["entry_px"]))
+            _fill(f, st, ledger, "sell", sym, px, pos["qty"],
+                  "overnight_flatten", broker)
         st.update({"day": today, "trades_today": 0, "stopped_today": False})
     if st.get("day_start_equity") is None or st.get("day") != today or \
        "day_equity_set" not in st:
-        st["day_start_equity"] = _mark_equity(st, lasts)
+        st["day_start_equity"] = _mark_equity(f, broker, st, lasts)
         st["day_equity_set"] = today
     if st["day_equity_set"] != today:
-        st["day_start_equity"] = _mark_equity(st, lasts)
+        st["day_start_equity"] = _mark_equity(f, broker, st, lasts)
         st["day_equity_set"] = today
 
-    equity = _mark_equity(st, lasts)
+    equity = _mark_equity(f, broker, st, lasts)
 
     # --- account-level kill switch (same rule as the slow arm) ------------
     st["high_water_mark"] = max(st.get("high_water_mark", equity), equity)
     dd = (st["high_water_mark"] - equity) / st["high_water_mark"] * 100 \
         if st["high_water_mark"] > 0 else 0.0
     if dd >= f.max_drawdown_pct:
-        for sym in list(st["positions"]):
-            _fill(f, st, ledger, "sell", sym, lasts.get(
-                sym, st["positions"][sym]["last_px"]),
-                st["positions"][sym]["qty"], "drawdown_kill")
+        for sym, pos in list(_positions(f, broker, st).items()):
+            _fill(f, st, ledger, "sell", sym,
+                  lasts.get(sym, pos.get("last_px", pos["entry_px"])),
+                  pos["qty"], "drawdown_kill", broker)
         st["halted"] = True
         ledger.write("fast_halt", arm=arm, reason=f"drawdown {dd:.1f}%")
         _save_state(state_path, st)
@@ -161,17 +217,17 @@ def run_fast_once(cfg: Config, broker, now: datetime | None = None,
     day_pnl_pct = (equity / st["day_start_equity"] - 1) * 100 \
         if st["day_start_equity"] > 0 else 0.0
     if not st["stopped_today"] and day_pnl_pct <= -f.daily_loss_stop_pct:
-        for sym in list(st["positions"]):
-            _fill(f, st, ledger, "sell", sym, lasts[sym],
-                  st["positions"][sym]["qty"], "daily_loss_stop")
+        for sym, pos in list(_positions(f, broker, st).items()):
+            _fill(f, st, ledger, "sell", sym, lasts[sym], pos["qty"],
+                  "daily_loss_stop", broker)
         st["stopped_today"] = True
         ledger.write("fast_day_stop", arm=arm, day_pnl_pct=round(day_pnl_pct, 3))
 
     # --- end-of-day flat --------------------------------------------------
     if now >= flat_dt:
-        for sym in list(st["positions"]):
-            _fill(f, st, ledger, "sell", sym, lasts[sym],
-                  st["positions"][sym]["qty"], "eod_flat")
+        for sym, pos in list(_positions(f, broker, st).items()):
+            _fill(f, st, ledger, "sell", sym, lasts[sym], pos["qty"],
+                  "eod_flat", broker)
     elif not st["stopped_today"] and now >= or_end:
         ors = {}
         for sym, df in bars.items():
@@ -179,18 +235,21 @@ def run_fast_once(cfg: Config, broker, now: datetime | None = None,
             if r:
                 ors[sym] = r
 
-        # exits: stop = back below OR low
-        for sym in list(st["positions"]):
-            if sym in ors and sym in lasts and lasts[sym] < ors[sym][1]:
-                _fill(f, st, ledger, "sell", sym, lasts[sym],
-                      st["positions"][sym]["qty"], "or_low_stop")
+        # exits: stop = back below the OR low recorded when we entered
+        held = _positions(f, broker, st)
+        for sym, pos in list(held.items()):
+            floor = st["or_low"].get(sym, ors.get(sym, (0, 0))[1])
+            if floor and sym in lasts and lasts[sym] < floor:
+                _fill(f, st, ledger, "sell", sym, lasts[sym], pos["qty"],
+                      "or_low_stop", broker)
 
         # entries: breakouts above OR high, ranked by strength
-        slots = f.top_k - len(st["positions"])
+        held = _positions(f, broker, st)
+        slots = f.top_k - len(held)
         budget_per_slot = (equity / f.top_k)
         candidates = []
         for sym, (hi, lo) in ors.items():
-            if sym in st["positions"] or sym not in lasts:
+            if sym in held or sym not in lasts:
                 continue
             if lasts[sym] < f.min_price:
                 continue
@@ -201,13 +260,16 @@ def run_fast_once(cfg: Config, broker, now: datetime | None = None,
         for sym, strength, hi, lo in candidates:
             if slots <= 0 or st["trades_today"] >= f.max_trades_per_day:
                 break
-            notional = min(budget_per_slot, st["cash"])
+            cash = broker.cash() if _live(f) else st["cash"]
+            notional = min(budget_per_slot, cash)
             if notional < 5:  # not worth a fill under $5
                 break
             qty = notional / lasts[sym]
-            _fill(f, st, ledger, "buy", sym, lasts[sym], qty,
-                  f"breakout +{strength:.2%} above OR high {hi:.2f}")
-            st["positions"][sym]["or_low"] = lo
+            if not _fill(f, st, ledger, "buy", sym, lasts[sym], qty,
+                         f"breakout +{strength:.2%} above OR high {hi:.2f}",
+                         broker):
+                continue
+            st["or_low"][sym] = lo
             st["trades_today"] += 1
             slots -= 1
             entered.append(sym)
@@ -216,16 +278,19 @@ def run_fast_once(cfg: Config, broker, now: datetime | None = None,
                      candidates=[c[0] for c in candidates], entered=entered,
                      trades_today=st["trades_today"])
 
-    equity = _mark_equity(st, lasts)
+    equity = _mark_equity(f, broker, st, lasts)
+    held = _positions(f, broker, st)
     ledger.write("fast_run", arm=arm, equity=equity, day=today,
+                 cost_accrued=round(st.get("cost_accrued", 0.0), 4),
                  day_pnl_pct=round((equity / st["day_start_equity"] - 1) * 100, 3)
                  if st["day_start_equity"] > 0 else 0.0,
-                 positions={s: round(p["qty"] * lasts.get(s, p["last_px"]), 2)
-                            for s, p in st["positions"].items()},
-                 cash=round(st["cash"], 2))
-    for sym, pos in st["positions"].items():
-        if sym in lasts:
-            pos["last_px"] = lasts[sym]
+                 positions={s: round(p.get("market_value",
+                                            p["qty"] * lasts.get(s, p.get("last_px", 0))), 2)
+                            for s, p in held.items()},
+                 cash=round(broker.cash() if _live(f) else st["cash"], 2))
+    if not _live(f):
+        for sym, pos in st["positions"].items():
+            if sym in lasts:
+                pos["last_px"] = lasts[sym]
     _save_state(state_path, st)
-    return {"status": "ok", "equity": equity,
-            "positions": list(st["positions"])}
+    return {"status": "ok", "equity": equity, "positions": list(held)}

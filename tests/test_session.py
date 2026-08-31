@@ -26,9 +26,10 @@ class SessionFake:
 def patched(monkeypatch):
     calls = []
 
-    def fake_tick(cfg, broker, kind):
+    def fake_tick(cfg, brokers, kind):
         calls.append(kind)
-        if kind in getattr(broker, "fail_on", ()):
+        one = brokers[kind] if isinstance(brokers, dict) else brokers
+        if kind in getattr(one, "fail_on", ()):
             raise RuntimeError("alpaca timeout")
         return {kind: {"status": "ok"}}
 

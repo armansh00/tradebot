@@ -56,6 +56,7 @@ def test_chat_answers_why_from_ledger(cfg, monkeypatch):
 
 
 def test_book_cap_trades_fifty_inside_hundred_k(cfg):
+    cfg.risk.book_cap = 50.0
     from conftest import FakeBroker, trending_series
     closes = {s: trending_series(seed=i) for i, s in enumerate(cfg.universe)}
     b = FakeBroker(closes, equity=100_000.0)
@@ -67,6 +68,7 @@ def test_book_cap_trades_fifty_inside_hundred_k(cfg):
 
 
 def test_book_cap_rebaselines_after_dashboard_reset(cfg):
+    cfg.risk.book_cap = 50.0
     from tradebot.risk import RiskManager
     risk = RiskManager(cfg, Ledger(cfg.ledger_path))
     assert risk.book_equity(100_000.0) == 50.0   # baseline anchors at 100k
@@ -75,6 +77,7 @@ def test_book_cap_rebaselines_after_dashboard_reset(cfg):
 
 
 def test_trading_loss_is_never_rebaselined_away(cfg):
+    cfg.risk.book_cap = 50.0
     # Adversarial review finding 1: a 60% TRADING loss must flow into the
     # book and trip the kill switch, not be mistaken for an account reset.
     from tradebot.risk import RiskManager
