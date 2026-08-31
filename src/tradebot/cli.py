@@ -45,6 +45,22 @@ def main(argv: list[str] | None = None) -> int:
                  if result["status"] == "ok" else ""))
         return 0
 
+    if cmd == "flatten":
+        from .broker import AlpacaBroker
+        try:
+            from dotenv import load_dotenv
+            load_dotenv(cfg.root / ".env")
+        except ImportError:
+            pass
+        for arm in ("slow", "fast", "movers"):
+            b = AlpacaBroker(*cfg.creds(arm))
+            held = list(b.positions_detail())
+            for sym in held:
+                print(f"{arm}: closing {sym} -> {b.close(sym).get('status')}")
+            if not held:
+                print(f"{arm}: already flat")
+        return 0
+
     if cmd == "verify":
         from .broker import AlpacaBroker, assert_distinct_accounts
         try:
@@ -109,7 +125,7 @@ def main(argv: list[str] | None = None) -> int:
         return 0
 
     print("Usage: python -m tradebot "
-          "[run|run-fast|run-movers|session|verify|chat|status|pnl|why SYM|decisions|report|evaluate|compare|kill|resume]")
+          "[run|run-fast|run-movers|session|verify|flatten|chat|status|pnl|why SYM|decisions|report|evaluate|compare|kill|resume]")
     return 0 if cmd == "help" else 1
 
 

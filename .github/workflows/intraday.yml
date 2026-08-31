@@ -20,8 +20,8 @@ jobs:
       - run: pip install -r requirements.txt
       - name: Fast-arm tick (simulated fills, live data)
         env:
-          ALPACA_SLOW_KEY: ${{ secrets.ALPACA_SLOW_KEY }}
-          ALPACA_SLOW_SECRET: ${{ secrets.ALPACA_SLOW_SECRET }}
+          ALPACA_API_KEY: ${{ secrets.ALPACA_API_KEY }}
+          ALPACA_SECRET_KEY: ${{ secrets.ALPACA_SECRET_KEY }}
           ALPACA_FAST_KEY: ${{ secrets.ALPACA_FAST_KEY }}
           ALPACA_FAST_SECRET: ${{ secrets.ALPACA_FAST_SECRET }}
           ALPACA_MOVERS_KEY: ${{ secrets.ALPACA_MOVERS_KEY }}

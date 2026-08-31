@@ -3,7 +3,12 @@
 # Alpaca now allows extra paper accounts with a chosen starting balance, so
 # the arms are genuinely separate books and every fill is a real order.
 accounts:
-  slow:   {key_env: ALPACA_SLOW_KEY,   secret_env: ALPACA_SLOW_SECRET}
+  # Alpaca allows a maximum of three paper accounts and the original $100k one
+  # already exists, so the slow arm stays on it and book_cap keeps its tradable
+  # book at $50. The two intraday arms get genuinely $50 accounts, which is
+  # where a real balance matters — settlement and buying power actually bind
+  # a day trader.
+  slow:   {key_env: ALPACA_API_KEY,    secret_env: ALPACA_SECRET_KEY}
   fast:   {key_env: ALPACA_FAST_KEY,   secret_env: ALPACA_FAST_SECRET}
   movers: {key_env: ALPACA_MOVERS_KEY, secret_env: ALPACA_MOVERS_SECRET}
 
@@ -23,7 +28,7 @@ strategy:
   min_order_notional: 2.0 # ignore rebalance dust under $2
 
 risk:
-  book_cap: 0.0             # bot trades this book size regardless of account equity (0 = whole account)
+  book_cap: 50.0             # bot trades this book size regardless of account equity (0 = whole account)
   max_order_notional: 30.0   # no single order above $30
   max_positions: 2
   max_drawdown_pct: 10.0     # equity 10% below high-water mark -> flatten + halt

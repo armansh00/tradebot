@@ -5,7 +5,12 @@ name: verify-accounts
 # numbers, equity, cash and holdings; fails if two arms share an account.
 
 on:
-  workflow_dispatch: {}
+  workflow_dispatch:
+    inputs:
+      flatten:
+        description: "Also close every open position (clean restart)"
+        type: boolean
+        default: false
 
 permissions:
   contents: read
@@ -21,10 +26,21 @@ jobs:
       - run: pip install -r requirements.txt
       - name: Verify accounts
         env:
-          ALPACA_SLOW_KEY: ${{ secrets.ALPACA_SLOW_KEY }}
-          ALPACA_SLOW_SECRET: ${{ secrets.ALPACA_SLOW_SECRET }}
+          ALPACA_API_KEY: ${{ secrets.ALPACA_API_KEY }}
+          ALPACA_SECRET_KEY: ${{ secrets.ALPACA_SECRET_KEY }}
           ALPACA_FAST_KEY: ${{ secrets.ALPACA_FAST_KEY }}
           ALPACA_FAST_SECRET: ${{ secrets.ALPACA_FAST_SECRET }}
           ALPACA_MOVERS_KEY: ${{ secrets.ALPACA_MOVERS_KEY }}
           ALPACA_MOVERS_SECRET: ${{ secrets.ALPACA_MOVERS_SECRET }}
         run: PYTHONPATH=src python -m tradebot verify
+
+      - name: Flatten every account (optional reset before a clean start)
+        if: inputs.flatten
+        env:
+          ALPACA_API_KEY: ${{ secrets.ALPACA_API_KEY }}
+          ALPACA_SECRET_KEY: ${{ secrets.ALPACA_SECRET_KEY }}
+          ALPACA_FAST_KEY: ${{ secrets.ALPACA_FAST_KEY }}
+          ALPACA_FAST_SECRET: ${{ secrets.ALPACA_FAST_SECRET }}
+          ALPACA_MOVERS_KEY: ${{ secrets.ALPACA_MOVERS_KEY }}
+          ALPACA_MOVERS_SECRET: ${{ secrets.ALPACA_MOVERS_SECRET }}
+        run: PYTHONPATH=src python -m tradebot flatten

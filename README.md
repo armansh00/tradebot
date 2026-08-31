@@ -184,7 +184,12 @@ here so the 8-week window is read with the right execution history attached.
 
 ## Fill model (revised 2026-08-31)
 
-Each arm trades its own $50 paper account and sends real orders.
+Each arm trades its own paper account and sends real orders. Alpaca caps a
+user at three paper accounts, and the original $100k one already existed, so
+the slow arm stays on it with `book_cap: 50` holding its tradable book to $50;
+the two intraday arms get genuinely $50 accounts, which is where a real
+balance matters, since settlement and buying power actually bind a day trader
+and not a monthly rebalance.
 
 The earlier design had the intraday arms simulate their own fills. That was
 not a preference; all three arms shared one $100k paper account, and real
@@ -210,6 +215,5 @@ Two consequences worth stating in advance. Order rejections are now possible
 and are recorded as `fast_rejected` rather than raised — a $50 cash account
 cannot recycle unsettled proceeds all day, and if settlement rules are what
 cap the fast arm's trade count, that is a finding rather than a fault. And
-with genuinely $50 accounts the `book_cap` baseline-anchoring workaround is
-switched off (`book_cap: 0`); the code and its regression tests remain, since
-the mechanism is still correct for anyone running inside a larger account.
+`book_cap` now applies to exactly one arm — the slow one, still inside the
+original $100k account — which is what it was written for.
