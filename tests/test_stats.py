@@ -87,3 +87,55 @@ def test_spearman_averages_ties_instead_of_inventing_order():
     assert spearman_rho([1, 2, 3, 4], [7, 7, 7, 7]) is None   # no information
     assert spearman_rho([1, 2, 3, 4], [1, 2, 3, 4]) == pytest.approx(1.0)
     assert spearman_rho([1, 2, 3, 4], [4, 3, 2, 1]) == pytest.approx(-1.0)
+
+
+def test_auc_and_rank_correlation_are_one_piece_of_evidence_not_two():
+    """Monotone in each other at a fixed class balance — same ordering,
+    different scale. The exact identity 2*AUC-1 is rank-biserial, which
+    Spearman is not, and the factor between them moves with class balance.
+    Both wrong claims were caught by asserting them and watching them fail."""
+    from tradebot.stats import auc, spearman_rho
+    rng = np.random.default_rng(1)
+    # Class balance held fixed: the scaling factor between them depends on it,
+    # so the equivalence is exact only within a balance, not across balances.
+    aucs, rhos = [], []
+    for _ in range(30):
+        scores = list(rng.normal(0, 1, 40))
+        labels = [True] * 20 + [False] * 20
+        rng.shuffle(labels)
+        noisy = [s + (1.0 if y else -1.0) * 0.8 for s, y in zip(scores, labels)]
+        a = auc(noisy, labels)
+        r = spearman_rho(noisy, [1.0 if y else 0.0 for y in labels])
+        if a is not None and r is not None:
+            aucs.append(a)
+            rhos.append(r)
+    assert len(aucs) > 20
+    assert spearman_rho(aucs, rhos) == pytest.approx(1.0)   # same ordering
+    assert not all(abs(r - (2 * a - 1)) < 0.02
+                   for a, r in zip(aucs, rhos))             # different scale
+
+
+def test_auc_is_undefined_when_everything_survived_or_nothing_did():
+    from tradebot.stats import auc
+    assert auc([1, 2, 3], [True, True, True]) is None
+    assert auc([1, 2, 3], [False, False, False]) is None
+    assert auc([3, 2, 1], [True, False, False]) == 1.0
+    assert auc([1, 2, 3], [True, False, False]) == 0.0
+    assert auc([1, 1, 1], [True, False, False]) == 0.5      # all ties
+
+
+def test_binary_outcomes_need_far_more_strategies_than_continuous_ones():
+    """The reason to make the continuous out-of-sample metric primary."""
+    from tradebot.stats import two_proportion_power_n, two_sample_power_n
+    assert two_proportion_power_n(0.03, 0.01) > 700     # ~766 per arm
+    assert two_proportion_power_n(0.10, 0.03) < 250     # ~191
+    assert two_sample_power_n(0.5) < 70                 # ~63
+    assert two_sample_power_n(0.8) < 30                 # ~25
+
+
+def test_risk_reports_the_difference_not_only_the_ratio():
+    from tradebot.stats import risk_comparison
+    r = risk_comparison(3, 100, 1, 100)
+    assert r["risk_ratio"] == 3.0
+    assert r["risk_difference"] == pytest.approx(0.02)
+    assert r["crosses_zero"]          # 3x and still not distinguishable

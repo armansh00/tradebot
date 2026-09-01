@@ -119,3 +119,75 @@ def test_identical_outcomes_yield_no_correlation_not_a_perfect_one(tmp_path):
     whose outcomes were all the same."""
     assert rank_correlation(_members(lambda i: False)) is None
     assert rank_correlation(_members(lambda i: True)) is None
+
+
+def test_a_technical_failure_cannot_be_a_research_control(tmp_path):
+    """Something that crashed on missing data is not evidence against a
+    hypothesis, and counting it as one flatters the gates for free."""
+    from tradebot.vintage import EVIDENCE_REJECTED, INVALID, PROMOTED
+    v = _v(tmp_path)
+    v.add(Member("p0", "a", "promoted", state=PROMOTED, survived=True))
+    v.add(Member("x0", "b", "rejected", state=INVALID, survived=False))
+    with pytest.raises(VintageError, match="technical failure"):
+        v.freeze()
+    v.members = [m for m in v.members if m.state != INVALID]
+    v.add(Member("r0", "b", "rejected", state=EVIDENCE_REJECTED, survived=False))
+    v.freeze()
+
+
+def test_the_executable_pool_excludes_what_never_ran(tmp_path):
+    from tradebot.vintage import (EVIDENCE_REJECTED, INELIGIBLE, INVALID,
+                                  PROMOTED)
+    v = _v(tmp_path)
+    v.add(Member("p0", "a", "promoted", state=PROMOTED))
+    v.add(Member("r0", "a", "rejected", state=EVIDENCE_REJECTED))
+    v.add(Member("i0", "a", "rejected", state=INVALID))
+    v.add(Member("e0", "a", "rejected", state=INELIGIBLE))
+    assert {m.strategy_id for m in v.executable_pool()} == {"p0", "r0"}
+
+
+def test_selector_null_detects_gates_that_pick_well(tmp_path):
+    """The comparator is a random subset of the pool the gates were given."""
+    from tradebot.vintage import EVIDENCE_REJECTED, PROMOTED, selector_null
+    v = _v(tmp_path)
+    for i in range(4):
+        v.add(Member(f"p{i}", f"lin{i}", "promoted", state=PROMOTED,
+                     oos_metric=0.9 + i * 0.01))
+    for i in range(40):
+        v.add(Member(f"r{i}", f"lin{i % 4}", "rejected",
+                     state=EVIDENCE_REJECTED, oos_metric=0.1 + (i % 7) * 0.01))
+    v.freeze()
+    out = selector_null(v, draws=3000)
+    assert out["promoted"] == 4 and out["pool"] == 44
+    assert out["p_value"] < 0.01                 # random draws rarely match
+
+
+def test_selector_null_exonerates_gates_that_pick_at_random(tmp_path):
+    from tradebot.vintage import EVIDENCE_REJECTED, PROMOTED, selector_null
+    import random
+    rng = random.Random(3)
+    v = _v(tmp_path)
+    for i in range(4):
+        v.add(Member(f"p{i}", f"lin{i}", "promoted", state=PROMOTED,
+                     oos_metric=rng.gauss(0, 1)))
+    for i in range(40):
+        v.add(Member(f"r{i}", f"lin{i % 4}", "rejected",
+                     state=EVIDENCE_REJECTED, oos_metric=rng.gauss(0, 1)))
+    v.freeze()
+    assert selector_null(v, draws=3000)["p_value"] > 0.05
+
+
+def test_selector_null_preserves_lineage_concentration(tmp_path):
+    """Four picks all from one lineage must be compared against four picks
+    all from one lineage, not against four spread across the pool."""
+    from tradebot.vintage import EVIDENCE_REJECTED, PROMOTED, selector_null
+    v = _v(tmp_path)
+    for i in range(3):
+        v.add(Member(f"p{i}", "reversal", "promoted", state=PROMOTED,
+                     oos_metric=0.5))
+    for i in range(30):
+        v.add(Member(f"r{i}", "reversal" if i < 10 else f"other{i}",
+                     "rejected", state=EVIDENCE_REJECTED, oos_metric=0.5))
+    v.freeze()
+    out = selector_null(v, draws=500)
+    assert out["note"] == "lineage-matched draws"

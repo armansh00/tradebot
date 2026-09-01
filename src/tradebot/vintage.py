@@ -30,6 +30,20 @@ from dataclasses import dataclass, field
 from datetime import date, datetime, timezone
 from pathlib import Path
 
+# Outcome of putting a candidate through the research process. Only one of
+# these is a control: a strategy that crashed because an API returned no data
+# is not evidence against a hypothesis, and counting it as one makes the gates
+# look good for reasons that have nothing to do with the gates.
+INVALID = "INVALID"                    # code, data or spec cannot be evaluated
+INELIGIBLE = "INELIGIBLE"              # violates account, liquidity, or
+                                       # minimum-observation requirements
+EVIDENCE_REJECTED = "EVIDENCE_REJECTED"  # ran, tested, failed a research gate
+PROMOTED = "PROMOTED"                  # ran, tested, passed every gate
+
+STATES = (INVALID, INELIGIBLE, EVIDENCE_REJECTED, PROMOTED)
+CONTROL_STATES = (EVIDENCE_REJECTED,)  # and nothing else
+TECHNICAL_STATES = (INVALID, INELIGIBLE)
+
 ARMS = ("promoted", "rejected", "random", "null")
 
 
@@ -42,8 +56,18 @@ class Member:
     strategy_id: str
     lineage: str
     cohort: str                 # one of ARMS
+    state: str = PROMOTED       # one of STATES
     research_rank: int | None = None   # the system's own ordering, 1 = best
     survived: bool | None = None       # filled after the window opens
+    oos_metric: float | None = None    # continuous outcome, primary
+
+    @property
+    def is_control(self) -> bool:
+        return self.state in CONTROL_STATES
+
+    @property
+    def is_technical_failure(self) -> bool:
+        return self.state in TECHNICAL_STATES
 
 
 @dataclass
@@ -68,7 +92,22 @@ class Vintage:
             raise VintageError(f"cohort must be one of {ARMS}")
         self.members.append(m)
 
+    def executable_pool(self) -> list[Member]:
+        """Everything the gates actually got to judge.
+
+        The selector null draws from exactly this set — not from the whole
+        list, which would include candidates that never ran, and not from a
+        freshly generated one, which the gates never saw.
+        """
+        return [m for m in self.members if not m.is_technical_failure]
+
     def freeze(self) -> None:
+        if any(m.is_technical_failure and m.cohort == "rejected"
+               for m in self.members):
+            raise VintageError(
+                "a technical failure cannot be a research control — "
+                "something that crashed on missing data is not evidence "
+                "against the hypothesis")
         if not any(m.cohort == "promoted" for m in self.members):
             raise VintageError("a vintage with no promoted strategies cannot "
                                "measure selection")
@@ -184,3 +223,65 @@ def process_ledger(vintages: list[Vintage]) -> str:
     lines += ["", "  Lineage rows exist so that twenty descendants of one idea",
               "  cannot make the process look like twenty discoveries."]
     return "\n".join(lines)
+
+
+def selector_null(vintage: Vintage, *, metric: str = "oos_metric",
+                  draws: int = 10_000, seed: int = 0) -> dict:
+    """Did the gates beat drawing the same number of candidates at random
+    from the pool they were actually given?
+
+    Not a coin flip, and not a freshly generated strategy the gates never
+    considered. The comparator is a random subset of the exact frozen
+    executable pool, the same size as the promoted set, with the lineage
+    composition preserved — otherwise the null quietly differs from the
+    treatment in how concentrated it is on one idea.
+    """
+    import random
+
+    pool = [m for m in vintage.executable_pool()
+            if getattr(m, metric) is not None]
+    promoted = [m for m in pool if m.state == PROMOTED]
+    if len(promoted) < 1 or len(pool) <= len(promoted):
+        return {"error": "need promoted members and a larger pool"}
+
+    score = lambda group: sum(getattr(m, metric) for m in group) / len(group)
+    observed = score(promoted)
+
+    # preserve how many picks came from each lineage
+    want = {}
+    for m in promoted:
+        want[m.lineage] = want.get(m.lineage, 0) + 1
+    by_lineage = {}
+    for m in pool:
+        by_lineage.setdefault(m.lineage, []).append(m)
+
+    rng = random.Random(seed)
+    hits, usable = 0, 0
+    for _ in range(draws):
+        pick = []
+        for lin, k in want.items():
+            available = by_lineage.get(lin, [])
+            if len(available) < k:
+                pick = []
+                break
+            pick += rng.sample(available, k)
+        if not pick:
+            continue
+        usable += 1
+        if score(pick) >= observed:
+            hits += 1
+    if not usable:
+        # not enough candidates per lineage to match the structure
+        rng = random.Random(seed)
+        for _ in range(draws):
+            pick = rng.sample(pool, len(promoted))
+            usable += 1
+            if score(pick) >= observed:
+                hits += 1
+        note = "lineage matching not possible — unmatched draw used"
+    else:
+        note = "lineage-matched draws"
+    return {"observed": round(observed, 6), "pool": len(pool),
+            "promoted": len(promoted), "draws": usable,
+            "p_value": round(hits / usable, 4) if usable else None,
+            "note": note}

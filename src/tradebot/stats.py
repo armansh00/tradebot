@@ -196,3 +196,80 @@ def pbo(matrix: np.ndarray, partitions: int = 8) -> PBO:
                # median out of sample — NOT the mean of a list of ones
                pbo=(sum(1 for l in logits if l <= 0) / len(logits))
                if logits else 0.0)
+
+
+def auc(scores: list[float], labels: list[bool]) -> float | None:
+    """P(a survivor is ranked above a failure), ties counted as half.
+
+    The natural statistic when the future outcome is binary. Spearman still
+    works with averaged ties, but on a dichotomous outcome the two are
+    MONOTONE in each other — they always order a set of selectors the same
+    way — so they are one piece of evidence in two dresses, not two
+    confirmations. (The exact identity 2*AUC - 1 is the RANK-BISERIAL
+    correlation; Spearman is the Pearson correlation of ranks and differs
+    from it by a factor that depends on class balance. Checked numerically
+    rather than assumed, after asserting the wrong identity once.)
+
+    AUC is the one to report, because it has a direct reading: the
+    probability that a survivor was ranked above a failure.
+
+    None when every strategy survived or none did — no discrimination exists
+    to measure, exactly as the corrected rank correlation returns None.
+    """
+    pos = [s for s, y in zip(scores, labels) if y]
+    neg = [s for s, y in zip(scores, labels) if not y]
+    if not pos or not neg:
+        return None
+    wins = sum(1.0 if p > n else 0.5 if p == n else 0.0
+               for p in pos for n in neg)
+    return round(wins / (len(pos) * len(neg)), 4)
+
+
+def two_proportion_power_n(p_treat: float, p_control: float,
+                           alpha: float = 0.05, power: float = 0.80) -> int:
+    """Strategies needed PER ARM to detect this difference in survival rates.
+
+    Included because the process-level question is itself a low-power
+    experiment, and it is better to know that before spending two years
+    collecting an answer that cannot reach significance. A survival rate of
+    3% against a background of 1% is a threefold lift and a two-point
+    difference; the second number is what determines the sample size.
+    """
+    if p_treat == p_control:
+        return 10 ** 9
+    za, zb = norm_ppf(1 - alpha / 2), norm_ppf(power)
+    var = p_treat * (1 - p_treat) + p_control * (1 - p_control)
+    return int(math.ceil((za + zb) ** 2 * var / (p_treat - p_control) ** 2))
+
+
+def two_sample_power_n(effect_sd: float, alpha: float = 0.05,
+                       power: float = 0.80) -> int:
+    """Per-arm n for a continuous outcome, effect expressed in SDs.
+
+    A continuous out-of-sample metric — net expectancy, net Sharpe — needs
+    far fewer strategies than a binary survived/failed flag, because
+    dichotomising throws away most of the information. That is the practical
+    argument for making the continuous comparison primary.
+    """
+    if effect_sd <= 0:
+        return 10 ** 9
+    za, zb = norm_ppf(1 - alpha / 2), norm_ppf(power)
+    return int(math.ceil(2 * ((za + zb) / effect_sd) ** 2))
+
+
+def risk_comparison(hits_t: int, n_t: int, hits_c: int, n_c: int) -> dict:
+    """Difference AND ratio, with a Wald interval on the difference.
+
+    A ratio alone flatters small numbers: 1% to 3% is 'three times better'
+    and two percentage points. Both belong in the report.
+    """
+    if not n_t or not n_c:
+        return {"error": "an arm has no judged members"}
+    pt, pc = hits_t / n_t, hits_c / n_c
+    se = math.sqrt(pt * (1 - pt) / n_t + pc * (1 - pc) / n_c)
+    lo, hi = (pt - pc) - 1.96 * se, (pt - pc) + 1.96 * se
+    return {"p_treat": round(pt, 4), "p_control": round(pc, 4),
+            "risk_difference": round(pt - pc, 4),
+            "ci95": (round(lo, 4), round(hi, 4)),
+            "risk_ratio": round(pt / pc, 3) if pc else None,
+            "crosses_zero": lo <= 0 <= hi}
