@@ -38,6 +38,7 @@ class ThresholdSummary:
     days: int
     trades: int
     mean_daily_net_pct: float
+    mean_daily_gross_pct: float
     total_net_pct: float
     win_rate: float
     daily: list[float] = field(default_factory=list)
@@ -187,6 +188,7 @@ def summarize(results: list[DayResult]) -> list[ThresholdSummary]:
     for thr in sorted({r.threshold_pct for r in results}):
         rows = [r for r in results if r.threshold_pct == thr]
         daily = [r.net_return_pct for r in rows]
+        gross = [r.gross_return_pct for r in rows]
         traded = [r for r in rows if r.trades]
         total = 1.0
         for d in daily:
@@ -195,6 +197,7 @@ def summarize(results: list[DayResult]) -> list[ThresholdSummary]:
             threshold_pct=thr, days=len(rows),
             trades=sum(r.trades for r in rows),
             mean_daily_net_pct=round(sum(daily) / len(daily), 4) if daily else 0.0,
+            mean_daily_gross_pct=round(sum(gross) / len(gross), 4) if gross else 0.0,
             total_net_pct=round((total - 1) * 100, 3),
             win_rate=round(sum(1 for r in traded if r.net_return_pct > 0)
                            / len(traded), 3) if traded else 0.0,
@@ -208,16 +211,32 @@ def report(summaries: list[ThresholdSummary]) -> str:
     rho = spearman_rho(thresholds, means)
     p = exact_permutation_p(thresholds, means)
 
-    lines = ["| threshold | days | trades | mean daily net % | total net % | win rate |",
-             "|---:|---:|---:|---:|---:|---:|"]
+    gross_means = [s.mean_daily_gross_pct for s in summaries]
+    rho_gross = spearman_rho(thresholds, gross_means)
+    p_gross = exact_permutation_p(thresholds, gross_means)
+
+    lines = ["| threshold | days | trades | mean daily gross % | mean daily net % "
+             "| total net % | win rate |",
+             "|---:|---:|---:|---:|---:|---:|---:|"]
     for s in summaries:
         lines.append(f"| {s.threshold_pct:.2f}% | {s.days} | {s.trades} | "
+                     f"{s.mean_daily_gross_pct:+.4f} | "
                      f"{s.mean_daily_net_pct:+.4f} | {s.total_net_pct:+.3f} | "
                      f"{s.win_rate:.2f} |")
     lines += [
         "",
         f"Spearman rho (threshold vs mean daily net) = {rho:+.3f}, "
         f"exact permutation p = {p:.4f}",
+        f"Same test on GROSS return (costs removed) = {rho_gross:+.3f}, "
+        f"p = {p_gross:.4f}",
+        "",
+        "Read the two together. Trading less always loses less to costs, so a "
+        "positive ordering on net that vanishes on gross is the cost gradient "
+        "wearing a signal's clothes, not evidence that bigger breakouts pay. "
+        "Note also that the grid is nested — a 2% breakout is also a 1% "
+        "breakout — so the arms are heavily correlated and the permutation "
+        "test's independence assumption is generous. Treat the p-value as an "
+        "optimistic bound.",
         "",
     ]
     if p < 0.05 and rho > 0:
