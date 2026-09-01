@@ -261,6 +261,12 @@ observation that would kill it.
 
 No model output is evidence until an independent test produces it.
 
+**Human intervention is measured as part of execution, never allowed to alter
+the experiment quietly.** An approval that changes when a trade happens changes
+what the strategy is; if that is not recorded against an estimated
+unsupervised counterfactual, the live record and the pre-registered strategy
+have silently become different things.
+
 **Every piece of information consumed by the research process must leave a
 trace.** Not only executed backtests: model suggestions, parameter searches,
 regime definitions, vault access, strategy descendants, null simulations,
