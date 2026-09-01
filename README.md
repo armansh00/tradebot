@@ -252,6 +252,13 @@ adjudicates.**
 
 **The system itself is the strategy being tested.**
 
+The model's objective is to generate mechanism-diverse, falsifiable
+hypotheses under a fixed research budget — not to find profitable strategies,
+and not even to generate decorrelated ones, since asking for low historical
+correlation makes decorrelation an optimisation target. Every hypothesis must
+name a preregistered mechanism and state, before any code exists, the
+observation that would kill it.
+
 No model output is evidence until an independent test produces it.
 
 **Every piece of information consumed by the research process must leave a

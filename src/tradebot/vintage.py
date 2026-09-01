@@ -61,7 +61,12 @@ class Member:
     mechanism: str | None = None   # preregistered id, e.g. "M01"
     research_rank: int | None = None   # the system's own ordering, 1 = best
     survived: bool | None = None       # filled after the window opens
-    oos_metric: float | None = None    # continuous outcome, primary
+    oos_metric: float | None = None            # raw net OOS expectancy
+    oos_metric_adjusted: float | None = None   # benchmark/factor-adjusted
+    # Both, always. A selector that prefers high-beta strategies will beat a
+    # random draw in a bull market and that is a real selector result for
+    # that vintage — but it is not alpha. Raw advantage with no adjusted
+    # advantage is the single most likely way this system fools itself.
 
     @property
     def is_control(self) -> bool:

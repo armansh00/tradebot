@@ -124,3 +124,28 @@ def anchor_message(*, strategy: str, sid: str, spec_commit: str,
         "Commit A is the pre-registration; this tag anchors the result.",
         "Neither value depends on this tag, so nothing here is circular.",
     ])
+
+
+REQUIRED_HYPOTHESIS_FIELDS = ("mechanism_id", "claim", "why_it_might_persist",
+                              "observable_prediction", "falsifier")
+
+
+def validate_hypothesis(h: dict, mechanisms: dict) -> None:
+    """A hypothesis without a falsifier is not a hypothesis.
+
+    The model must state, before any code exists, what observation would kill
+    the idea. That single field is what turns a plausible story into
+    something the gates can act on — and it is the field a system optimising
+    for approval would most like to omit.
+    """
+    missing = [f for f in REQUIRED_HYPOTHESIS_FIELDS if not h.get(f)]
+    if missing:
+        raise ProvenanceError(
+            "hypothesis is missing " + ", ".join(missing) +
+            ". A claim with no stated falsifier cannot be tested, only "
+            "believed.")
+    if h["mechanism_id"] not in mechanisms:
+        raise ProvenanceError(
+            f"mechanism {h['mechanism_id']} is not in the preregistered "
+            f"taxonomy {sorted(mechanisms)}. Novelty is declared in advance, "
+            "not invented to fit an idea.")

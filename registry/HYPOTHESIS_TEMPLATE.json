@@ -1,0 +1,9 @@
+{
+  "mechanism_id": "M05",
+  "claim": "Temporary liquidity imbalance causes a price concession followed by partial recovery.",
+  "why_it_might_persist": "Compensation for supplying immediacy and bearing inventory risk. Persists because someone must be paid to take the other side, not because others have failed to notice.",
+  "observable_prediction": "Conditional reversal should increase with measured spread and liquidity stress, monotonically.",
+  "falsifier": "No monotonic relationship between liquidity stress and subsequent reversal after costs. A single stressed bucket working while its neighbours do not is an optimised parameter, not this mechanism.",
+  "lineage_parent": null,
+  "declared_before_code": true
+}

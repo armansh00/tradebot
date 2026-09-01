@@ -1,6 +1,7 @@
 """Two-stage provenance. The specification must be in history before the
 result exists, and nothing may depend on itself."""
 import json
+import pathlib
 import subprocess
 
 import pytest
@@ -83,3 +84,37 @@ def test_anchor_message_carries_the_backward_references(tmp_path):
                          verdict="REJECT")
     for token in ("abc123", "def456", "f" * 64, "REJECT", "pre-registration"):
         assert token in msg
+
+
+MECHANISMS = {"M01": "short-horizon reversal", "M05": "liquidity / spread"}
+HYPOTHESIS = {
+    "mechanism_id": "M05",
+    "claim": "Liquidity imbalance causes concession then partial recovery.",
+    "why_it_might_persist": "Compensation for immediacy and inventory risk.",
+    "observable_prediction": "Reversal rises with measured spread stress.",
+    "falsifier": "No monotonic relation between stress and reversal after costs.",
+}
+
+
+def test_a_hypothesis_without_a_falsifier_is_refused(tmp_path):
+    """The field a system optimising for approval would most like to omit."""
+    from tradebot.provenance import validate_hypothesis
+    validate_hypothesis(HYPOTHESIS, MECHANISMS)
+    for field in ("falsifier", "why_it_might_persist", "observable_prediction",
+                  "claim"):
+        broken = {**HYPOTHESIS, field: ""}
+        with pytest.raises(ProvenanceError, match=field):
+            validate_hypothesis(broken, MECHANISMS)
+
+
+def test_mechanisms_must_come_from_the_preregistered_taxonomy(tmp_path):
+    from tradebot.provenance import validate_hypothesis
+    with pytest.raises(ProvenanceError, match="not in the preregistered"):
+        validate_hypothesis({**HYPOTHESIS, "mechanism_id": "M99"}, MECHANISMS)
+
+
+def test_the_shipped_template_passes_its_own_validator(tmp_path):
+    import json
+    from tradebot.provenance import validate_hypothesis
+    tpl = json.loads(pathlib.Path("registry/HYPOTHESIS_TEMPLATE.json").read_text())
+    validate_hypothesis(tpl, {f"M{i:02d}": "x" for i in range(1, 11)})
