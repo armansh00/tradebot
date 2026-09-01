@@ -82,6 +82,54 @@ def main(argv: list[str] | None = None) -> int:
                  if result["status"] == "ok" else ""))
         return 0
 
+    if cmd == "sweep":
+        try:
+            from dotenv import load_dotenv
+            load_dotenv(cfg.root / ".env")
+        except ImportError:
+            pass
+        import datetime as _dt
+        from .broker import AlpacaBroker
+        from .sweep import DayResult, replay_day, report, summarize
+        broker = AlpacaBroker(*cfg.creds("fast"))
+        f = cfg.fast
+        thresholds = cfg.sweep["thresholds_pct"]
+        days = broker.trading_days(int(cfg.sweep["lookback_days"]))
+        results = []
+        for day in days:
+            bars = broker.intraday_5min(f.universe, day=day)
+            if not bars:
+                continue
+            for thr in thresholds:
+                net, trades, gross = replay_day(
+                    bars, or_minutes=f.or_minutes, top_k=f.top_k,
+                    threshold_pct=thr, cost_bps_per_side=f.cost_bps_per_side,
+                    max_trades=f.max_trades_per_day,
+                    daily_loss_stop_pct=f.daily_loss_stop_pct,
+                    flat_minutes_before_close=f.flat_minutes_before_close,
+                    min_price=f.min_price, start_cash=f.start_cash)
+                results.append(DayResult(str(day), thr, net, trades, gross,
+                                         round(gross - net, 4)))
+        if not results:
+            print("no bar data returned for the lookback window")
+            return 1
+        text = report(summarize(results))
+        header = (f"# Threshold sweep — {len(days)} sessions "
+                  f"({days[0]} to {days[-1]})\n\n"
+                  f"Universe: {', '.join(f.universe)}\n"
+                  f"Opening range {f.or_minutes} min, top {f.top_k}, "
+                  f"cost {f.cost_bps_per_side} bps/side, "
+                  f"max {f.max_trades_per_day} trades/day.\n\n"
+                  "Replay of a pre-registered grid, not a live race. "
+                  "See DESIGN-threshold-sweep.md.\n\n")
+        out_dir = cfg.root / "sweeps"
+        out_dir.mkdir(exist_ok=True)
+        path = out_dir / f"{_dt.date.today().isoformat()}-thresholds.md"
+        path.write_text(header + text + "\n")
+        print(header + text)
+        print(f"\nwritten to {path.relative_to(cfg.root)}")
+        return 0
+
     if cmd == "flatten":
         from .broker import AlpacaBroker
         try:
@@ -160,7 +208,7 @@ def main(argv: list[str] | None = None) -> int:
         return 0
 
     print("Usage: python -m tradebot "
-          "[run|run-fast|run-movers|session|verify|flatten|chat|status|pnl|why SYM|decisions|report|evaluate|compare|kill|resume]")
+          "[run|run-fast|run-movers|session|verify|flatten|sweep|chat|status|pnl|why SYM|decisions|report|evaluate|compare|kill|resume]")
     return 0 if cmd == "help" else 1
 
 

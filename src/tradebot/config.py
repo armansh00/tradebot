@@ -84,6 +84,9 @@ class Config:
     fast_evaluation: FastEvalCfg
     movers_evaluation: MoversEvalCfg
     accounts: dict = field(default_factory=lambda: dict(DEFAULT_ACCOUNTS))
+    sweep: dict = field(default_factory=lambda: {
+        "thresholds_pct": [0.0, 0.25, 0.5, 1.0, 1.5, 2.0, 3.0],
+        "lookback_days": 30})
     root: Path = field(default_factory=Path.cwd)
 
     def creds(self, arm: str) -> tuple[str, str]:
@@ -137,5 +140,8 @@ def load_config(root: str | os.PathLike | None = None) -> Config:
         fast_evaluation=FastEvalCfg(**raw["fast_evaluation"]),
         movers_evaluation=MoversEvalCfg(**raw["movers_evaluation"]),
         accounts={**DEFAULT_ACCOUNTS, **raw.get("accounts", {})},
+        sweep=raw.get("sweep") or {"thresholds_pct": [0.0, 0.25, 0.5, 1.0,
+                                                      1.5, 2.0, 3.0],
+                                   "lookback_days": 30},
         root=root_path,
     )

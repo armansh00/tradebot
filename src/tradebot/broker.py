@@ -5,6 +5,8 @@ from __future__ import annotations
 import os
 import pandas as pd
 
+from .session import ET
+
 
 class BrokerError(RuntimeError):
     pass
@@ -41,6 +43,15 @@ class AlpacaBroker:
     def market_open(self) -> bool:
         return bool(self._trading.get_clock().is_open)
 
+    def trading_days(self, n: int) -> list:
+        """The last n completed trading days, most recent last."""
+        from datetime import datetime, timedelta
+        from alpaca.trading.requests import GetCalendarRequest
+        today = datetime.now(ET).date()
+        days = self._trading.get_calendar(GetCalendarRequest(
+            start=today - timedelta(days=int(n * 1.7) + 10), end=today))
+        return [d.date for d in days if d.date < today][-n:]
+
     def session_today(self):
         """(open_utc, close_utc) for today from the exchange calendar, or None
         if today is not a trading day. Calendar, not a hardcoded 9:30-16:00:
@@ -48,7 +59,7 @@ class AlpacaBroker:
         a bot that does not know that carries positions it meant to flatten."""
         from datetime import datetime
         from alpaca.trading.requests import GetCalendarRequest
-        from .session import ET, to_session_utc
+        from .session import to_session_utc
         today = datetime.now(ET).date()
         days = self._trading.get_calendar(GetCalendarRequest(start=today, end=today))
         if not days or days[0].date != today:
@@ -61,17 +72,21 @@ class AlpacaBroker:
         from zoneinfo import ZoneInfo
         return datetime.now(ZoneInfo("America/New_York"))
 
-    def intraday_5min(self, symbols: list[str]) -> dict[str, pd.DataFrame]:
-        """Today's 5-minute bars per symbol, ET timestamps, cols t/o/h/l/c."""
+    def intraday_5min(self, symbols: list[str], day=None) -> dict[str, pd.DataFrame]:
+        """5-minute bars per symbol for `day` (default today), ET timestamps,
+        cols t/o/h/l/c. The `day` argument is what lets the threshold sweep
+        replay past sessions through exactly this path."""
         from datetime import datetime, time as dtime
         from zoneinfo import ZoneInfo
         from alpaca.data.requests import StockBarsRequest
         from alpaca.data.timeframe import TimeFrame, TimeFrameUnit
         et = ZoneInfo("America/New_York")
-        start = datetime.combine(datetime.now(et).date(), dtime(9, 30), et)
+        day = day or datetime.now(et).date()
+        start = datetime.combine(day, dtime(9, 30), et)
+        end = datetime.combine(day, dtime(16, 0), et)
         req = StockBarsRequest(symbol_or_symbols=symbols,
                                timeframe=TimeFrame(5, TimeFrameUnit.Minute),
-                               start=start)
+                               start=start, end=end)
         df = self._data.get_stock_bars(req).df.reset_index()
         out: dict[str, pd.DataFrame] = {}
         for sym in symbols:

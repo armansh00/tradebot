@@ -85,3 +85,10 @@ movers_evaluation:
   min_weeks: 8
   require_net_positive: true
   must_beat_both_arms: true
+
+# Threshold sweep — a REPLAY, not extra live arms. The grid is pre-registered
+# here so the analysis cannot be tuned after seeing results. See
+# DESIGN-threshold-sweep.md for why picking the best of k arms fails.
+sweep:
+  thresholds_pct: [0.0, 0.25, 0.5, 1.0, 1.5, 2.0, 3.0]
+  lookback_days: 30
