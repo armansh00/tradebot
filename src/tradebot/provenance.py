@@ -127,7 +127,10 @@ def anchor_message(*, strategy: str, sid: str, spec_commit: str,
 
 
 REQUIRED_HYPOTHESIS_FIELDS = ("mechanism_id", "claim", "why_it_might_persist",
-                              "observable_prediction", "falsifier")
+                              "observable_prediction", "falsifier",
+                              "predictions", "falsifiers",
+                              "minimum_observations", "evaluation_dataset",
+                              "costs", "benchmark")
 
 
 def validate_hypothesis(h: dict, mechanisms: dict) -> None:
@@ -144,6 +147,23 @@ def validate_hypothesis(h: dict, mechanisms: dict) -> None:
             "hypothesis is missing " + ", ".join(missing) +
             ". A claim with no stated falsifier cannot be tested, only "
             "believed.")
+    # The contract must compile before the specification is committed, so a
+    # prose falsifier that cannot be executed is caught at pre-registration
+    # rather than discovered when it is time to adjudicate.
+    from .falsification import Contract, ContractError, Prediction
+    try:
+        Contract(hypothesis_id=h.get("hypothesis_id", "?"),
+                 mechanism_id=h["mechanism_id"],
+                 predictions=[Prediction(p["id"], p["metric"], p["operator"],
+                                         p.get("value"))
+                              for p in h["predictions"]],
+                 falsifiers=h["falsifiers"],
+                 minimum_observations=int(h["minimum_observations"]),
+                 evaluation_dataset=h["evaluation_dataset"],
+                 costs=h["costs"], benchmark=h["benchmark"])
+    except (ContractError, KeyError, TypeError, ValueError) as exc:
+        raise ProvenanceError(
+            f"falsification contract does not compile: {exc}") from exc
     if h["mechanism_id"] not in mechanisms:
         raise ProvenanceError(
             f"mechanism {h['mechanism_id']} is not in the preregistered "

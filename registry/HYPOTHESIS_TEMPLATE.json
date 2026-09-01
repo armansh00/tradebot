@@ -1,9 +1,28 @@
 {
+  "hypothesis_id": "H-0042",
   "mechanism_id": "M05",
   "claim": "Temporary liquidity imbalance causes a price concession followed by partial recovery.",
-  "why_it_might_persist": "Compensation for supplying immediacy and bearing inventory risk. Persists because someone must be paid to take the other side, not because others have failed to notice.",
-  "observable_prediction": "Conditional reversal should increase with measured spread and liquidity stress, monotonically.",
-  "falsifier": "No monotonic relationship between liquidity stress and subsequent reversal after costs. A single stressed bucket working while its neighbours do not is an optimised parameter, not this mechanism.",
+  "why_it_might_persist": "Compensation for supplying immediacy and bearing inventory risk. It persists because someone must be paid to take the other side, not because nobody has noticed.",
+  "observable_prediction": "Reversal magnitude increases with measured liquidity stress, monotonically across preregistered spread buckets.",
+  "falsifier": "No ordered relationship between liquidity stress and subsequent reversal, at or above the minimum observation count.",
+  "predictions": [
+    {"id": "P1", "metric": "net_long_short_expectancy", "operator": ">", "value": 0},
+    {"id": "P2", "metric": "reversal_by_spread_bucket", "operator": "monotonic_increase"},
+    {"id": "P3", "metric": "net_expectancy", "operator": ">", "value": 0}
+  ],
+  "falsifiers": [
+    {"prediction": "P1",
+     "predicate": {"metric": "net_long_short_expectancy", "operator": "<=", "value": 0}},
+    {"prediction": "P2",
+     "predicate": {"metric": "reversal_by_spread_bucket", "operator": "not_monotonic"}},
+    {"prediction": "P3",
+     "predicate": {"metric": "net_expectancy", "operator": "<=", "value": 0}}
+  ],
+  "minimum_observations": 200,
+  "evaluation_dataset": "confirmatory_oos",
+  "costs": "measured",
+  "benchmark": "factor_adjusted",
+  "multiplicity_adjustment": "required",
   "lineage_parent": null,
   "declared_before_code": true
 }

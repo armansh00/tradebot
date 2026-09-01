@@ -93,6 +93,15 @@ HYPOTHESIS = {
     "why_it_might_persist": "Compensation for immediacy and inventory risk.",
     "observable_prediction": "Reversal rises with measured spread stress.",
     "falsifier": "No monotonic relation between stress and reversal after costs.",
+    "predictions": [{"id": "P1", "metric": "net_long_short_expectancy",
+                     "operator": ">", "value": 0}],
+    "falsifiers": [{"prediction": "P1",
+                    "predicate": {"metric": "net_long_short_expectancy",
+                                  "operator": "<=", "value": 0}}],
+    "minimum_observations": 200,
+    "evaluation_dataset": "confirmatory_oos",
+    "costs": "measured",
+    "benchmark": "factor_adjusted",
 }
 
 
@@ -118,3 +127,13 @@ def test_the_shipped_template_passes_its_own_validator(tmp_path):
     from tradebot.provenance import validate_hypothesis
     tpl = json.loads(pathlib.Path("registry/HYPOTHESIS_TEMPLATE.json").read_text())
     validate_hypothesis(tpl, {f"M{i:02d}": "x" for i in range(1, 11)})
+
+
+def test_a_prose_falsifier_that_will_not_compile_is_caught_at_registration(tmp_path):
+    """Better to fail now than to discover at adjudication that the contract
+    cannot be executed."""
+    from tradebot.provenance import validate_hypothesis
+    broken = {**HYPOTHESIS,
+              "falsifiers": [{"prediction": "P9", "predicate": {}}]}
+    with pytest.raises(ProvenanceError):
+        validate_hypothesis(broken, MECHANISMS)
