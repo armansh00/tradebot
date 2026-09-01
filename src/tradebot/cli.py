@@ -177,22 +177,26 @@ def main(argv: list[str] | None = None) -> int:
         symbols = sorted(set(cfg.fast.universe) | set(cfg.universe))
         rets = daily_returns(broker.daily_closes(symbols, 500))
         from .research_log import record, render
-        from .vault import strategy_hash
+        from .vault import code_version, strategy_hash
         spec = {"rule": "daily cross-sectional reversal", "ks": [1, 2, 3],
                 "cost_bps_per_side": cfg.fast.cost_bps_per_side,
                 "universe": symbols, "benchmark": "SPY",
-                "acceptance": "all seven gates"}
+                "research_end": cfg.vault_dates["research_end"],
+                "vault_start": cfg.vault_dates["vault_start"],
+                "acceptance": "all seven gates",
+                "code": code_version(cfg.root)}
         gates, passed = evaluate(rets, ks=[1, 2, 3],
                                  cost_bps_per_side=cfg.fast.cost_bps_per_side,
                                  benchmark="SPY",
                                  name="daily cross-sectional reversal")
         record(cfg.research_log_path, type="evaluation",
-               strategy_hash=strategy_hash(spec), variants=3,
+               strategy_hash=strategy_hash(spec, cfg.root),
+               lineage_root="reversal-v1", variants=3,
                verdict="ACCEPT" if passed else "REJECT",
                failed=[g.name for g in gates if not g.passed])
         card = report_card(
             f"daily cross-sectional reversal | {len(rets)} days | "
-            f"{len(symbols)} names | hash {strategy_hash(spec)}",
+            f"{len(symbols)} names | hash {strategy_hash(spec, cfg.root)}",
             gates, passed) + "\n\n" + render(cfg.research_log_path)
         out = cfg.root / "sweeps"
         out.mkdir(exist_ok=True)

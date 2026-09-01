@@ -88,18 +88,26 @@ def equal_weight(rets: pd.DataFrame) -> np.ndarray:
     return rets.iloc[1:].mean(axis=1).dropna().to_numpy(dtype=float)
 
 
+# Declared in advance and capped, so the system cannot keep buying
+# permutations until an unstable p-value lands on the side it prefers.
+# One escalation, one ceiling, both fixed before any result is seen.
+ESCALATION = {"screen": 400, "boundary": 20_000, "tail": 5_000}
+BOUNDARY = (0.01, 0.15)
+
+
 def resolution_for(observed: float, null: np.ndarray) -> int:
-    """How many more draws this result deserves.
+    """How many more draws this result deserves — from a fixed ladder.
 
     400 is plenty to establish that p is nowhere near 0.05. It is not enough
-    to resolve the tail if the observed statistic sits near the boundary,
-    where the answer actually depends on the third decimal.
+    to resolve the tail if the statistic sits near the boundary, where the
+    answer depends on the third decimal. The escalation happens at most once;
+    an unstable p-value is a finding, not an invitation to keep drawing.
     """
     p = float((null >= observed).mean())
-    if 0.01 <= p <= 0.15:
-        return 20000
-    if p < 0.01:
-        return 5000
+    if BOUNDARY[0] <= p <= BOUNDARY[1]:
+        return ESCALATION["boundary"]
+    if p < BOUNDARY[0]:
+        return ESCALATION["tail"]
     return 0
 
 

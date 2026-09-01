@@ -244,3 +244,21 @@ arm than the fast arm.
 
 The quote fetch is fail-open — a missing quote costs a measurement, never a
 trade.
+
+## The rule
+
+**The language model proposes and explains. Statistical, validation, risk and
+execution systems retain veto authority.**
+
+No model output is evidence until an independent test produces it.
+
+Everything else in this repository is machinery for enforcing those two
+sentences when it would be more comfortable not to. Concretely: REJECT is the
+default verdict and all seven gates must pass; the holdout is bound to a hash
+of the strategy's rules, parameters, universe, cost model, data cutoffs,
+acceptance criteria and code commit, and is consumed the moment the data is
+handed over rather than when an analysis finishes; the research log is
+hash-chained so a deleted or edited experiment is detectable; permutation
+counts escalate on a schedule fixed before any result is seen; and every
+report card carries the count of how much searching preceded it, with edits of
+one failed idea grouped by lineage instead of counted as separate hypotheses.

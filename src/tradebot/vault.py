@@ -30,9 +30,49 @@ class VaultError(RuntimeError):
     pass
 
 
-def strategy_hash(spec: dict) -> str:
-    """Stable fingerprint of everything that makes this strategy this one."""
-    canonical = json.dumps(spec, sort_keys=True, separators=(",", ":"),
+def code_version(root: Path | None = None) -> str:
+    """Commit SHA of the code that produced a result.
+
+    A hash over parameters alone lets a meaningful change to the rules escape
+    unnoticed: same config, different behaviour, same fingerprint. The commit
+    goes into the hash so it cannot.
+    """
+    import subprocess
+    try:
+        out = subprocess.run(["git", "rev-parse", "HEAD"], cwd=root or ".",
+                             capture_output=True, text=True, timeout=5)
+        return out.stdout.strip()[:12] or "unversioned"
+    except Exception:
+        return "unversioned"
+
+
+def _canonical(value):
+    """Normalise before hashing, or the same strategy fingerprints differently.
+
+    Floats are rounded to twelve significant digits so that 0.05 and
+    0.05000000000000001 — the same number after a round trip through YAML and
+    arithmetic — do not produce different strategies. Sets and tuples become
+    sorted lists; dict order never matters.
+    """
+    if isinstance(value, float):
+        return float(f"{value:.12g}")
+    if isinstance(value, dict):
+        return {str(k): _canonical(v) for k, v in sorted(value.items())}
+    if isinstance(value, (list, tuple, set)):
+        items = [_canonical(v) for v in value]
+        return sorted(items, key=repr) if isinstance(value, set) else items
+    return value
+
+
+def strategy_hash(spec: dict, root: Path | None = None) -> str:
+    """Fingerprint of everything that makes this strategy this one.
+
+    Covers the rules, parameters, universe, cost model, data cutoffs,
+    acceptance criteria and the code version. Anything omitted here is a way
+    for a changed strategy to inherit an old strategy's holdout.
+    """
+    full = {**_canonical(spec), "code": spec.get("code") or code_version(root)}
+    canonical = json.dumps(full, sort_keys=True, separators=(",", ":"),
                            default=str)
     return hashlib.sha256(canonical.encode()).hexdigest()[:16]
 
@@ -67,8 +107,14 @@ class Vault:
 
     def open(self, df: pd.DataFrame, dates, *, spec: dict,
              name: str) -> pd.DataFrame:
-        """Spend the vault. Succeeds once, for one strategy, forever."""
-        h = strategy_hash(spec)
+        """Spend the vault. Succeeds once, for one strategy, forever.
+
+        Consumption is recorded BEFORE the data is handed back. If evaluation
+        then crashes, errors, or is abandoned because the answer looked bad,
+        the vault stays spent — seeing the data is what consumes it, not
+        finishing the analysis. "Opened" and "passed" are different events.
+        """
+        h = strategy_hash(spec, self.path.parent)
         state = self._state()
         if state["status"] == "CONSUMED":
             if state["strategy_hash"] != h:
