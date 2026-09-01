@@ -57,6 +57,7 @@ class Member:
     lineage: str
     cohort: str                 # one of ARMS
     state: str = PROMOTED       # one of STATES
+    mechanism: str | None = None   # preregistered id, e.g. "M01"
     research_rank: int | None = None   # the system's own ordering, 1 = best
     survived: bool | None = None       # filled after the window opens
     oos_metric: float | None = None    # continuous outcome, primary
@@ -80,6 +81,12 @@ class Vintage:
     members: list[Member] = field(default_factory=list)
     frozen_at: str | None = None
     opened_at: str | None = None
+    # Vintage 000 was observed while the measuring instrument was still being
+    # built. Preserve everything it produces about scheduling, execution,
+    # fills and failure modes — and keep it out of confirmatory inference,
+    # because its process-level metrics were not frozen before outcomes
+    # became visible.
+    commissioning: bool = False
 
     # ---- lifecycle -------------------------------------------------------
     def add(self, m: Member) -> None:
@@ -133,6 +140,7 @@ class Vintage:
             "window_start": str(self.window_start),
             "window_end": str(self.window_end),
             "frozen_at": self.frozen_at, "opened_at": self.opened_at,
+            "commissioning": self.commissioning,
             "members": [m.__dict__ for m in self.members],
         }, indent=2) + "\n")
 
@@ -143,7 +151,8 @@ class Vintage:
                 information_cutoff=date.fromisoformat(d["information_cutoff"]),
                 window_start=date.fromisoformat(d["window_start"]),
                 window_end=date.fromisoformat(d["window_end"]),
-                frozen_at=d.get("frozen_at"), opened_at=d.get("opened_at"))
+                frozen_at=d.get("frozen_at"), opened_at=d.get("opened_at"),
+                commissioning=bool(d.get("commissioning", False)))
         v.members = [Member(**m) for m in d["members"]]
         return v
 

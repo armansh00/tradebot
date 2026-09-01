@@ -121,3 +121,24 @@ interaction_test:
   specified: true
   form: "E[R|signal,regime] - E[R|no signal,regime]"
 declared_before_test: true
+
+# Novelty is DECLARED, not discovered. Asking a model for strategies whose
+# backtests correlate below 0.2 turns historical decorrelation into another
+# optimisation target — one more researcher degree of freedom. Instead the
+# mechanism is preregistered and return correlation is measured afterwards.
+#
+#   MECHANISM -> HYPOTHESIS -> STRATEGY FAMILY -> PARAMETER VARIANTS
+#
+# Two strategies share a lineage if they descend from the same economic
+# argument, whatever their parameters or their measured correlation.
+mechanisms:
+  M01: short-horizon reversal
+  M02: continuation / momentum
+  M03: event response
+  M04: post-event drift
+  M05: liquidity / spread capture
+  M06: volatility response
+  M07: cross-sectional relative value
+  M08: intraday timing
+  M09: overnight behaviour
+  M10: order flow / microstructure
