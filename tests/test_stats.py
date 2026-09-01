@@ -78,3 +78,12 @@ def test_components_are_exposed_not_collapsed(cfg):
         assert field in text
     ptext = "\n".join(pbo(rng.normal(0, 0.01, (200, 6)), partitions=6).lines())
     assert "configurations" in ptext and "PBO" in ptext
+
+
+def test_spearman_averages_ties_instead_of_inventing_order():
+    from tradebot.stats import _ranks, spearman_rho
+    assert _ranks([5, 5, 5, 5]) == [2.5, 2.5, 2.5, 2.5]
+    assert _ranks([1, 2, 2, 3]) == [1.0, 2.5, 2.5, 4.0]
+    assert spearman_rho([1, 2, 3, 4], [7, 7, 7, 7]) is None   # no information
+    assert spearman_rho([1, 2, 3, 4], [1, 2, 3, 4]) == pytest.approx(1.0)
+    assert spearman_rho([1, 2, 3, 4], [4, 3, 2, 1]) == pytest.approx(-1.0)

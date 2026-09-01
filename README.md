@@ -247,8 +247,10 @@ trade.
 
 ## The rule
 
-**The language model proposes and explains. Statistical, validation, risk and
-execution systems retain veto authority.**
+**The language model proposes and explains. The gates veto. The future
+adjudicates.**
+
+**The system itself is the strategy being tested.**
 
 No model output is evidence until an independent test produces it.
 

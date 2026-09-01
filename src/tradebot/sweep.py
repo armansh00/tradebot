@@ -157,18 +157,9 @@ def replay_day(bars: dict[str, pd.DataFrame], *, or_minutes: int, top_k: int,
 
 
 def spearman_rho(x: list[float], y: list[float]) -> float:
-    def rank(v):
-        order = sorted(range(len(v)), key=lambda i: v[i])
-        r = [0.0] * len(v)
-        for pos, i in enumerate(order):
-            r[i] = pos + 1
-        return r
-    rx, ry = rank(x), rank(y)
-    n = len(x)
-    mx, my = sum(rx) / n, sum(ry) / n
-    num = sum((a - mx) * (b - my) for a, b in zip(rx, ry))
-    den = (sum((a - mx) ** 2 for a in rx) * sum((b - my) ** 2 for b in ry)) ** 0.5
-    return num / den if den else 0.0
+    """Delegates to the one implementation with correct tie handling."""
+    from .stats import spearman_rho as _rho
+    return _rho(x, y) or 0.0
 
 
 def exact_permutation_p(x: list[float], y: list[float]) -> float:

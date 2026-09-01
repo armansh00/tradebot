@@ -29,6 +29,19 @@ from zoneinfo import ZoneInfo
 from .config import Config
 from .ledger import Ledger
 
+
+def intent_id(arm: str, day: str, tick: str, side: str, sym: str) -> str:
+    """Deterministic id for one intended order.
+
+    Regenerated identically by a retry, which is the point: it goes to the
+    broker as client_order_id, and the broker refuses the second one. The
+    dangerous failure is not slippage, it is submitting twice because a leg
+    restarted after the network dropped mid-submission.
+    """
+    import hashlib
+    key = f"{arm}|{day}|{tick}|{side}|{sym}"
+    return "tb-" + hashlib.sha256(key.encode()).hexdigest()[:20]
+
 ET = ZoneInfo("America/New_York")
 OPEN_T = time(9, 30)
 CLOSE_T = time(16, 0)
@@ -82,7 +95,8 @@ def _mark_equity(f, broker, st: dict, lasts: dict[str, float]) -> float:
 
 
 def _fill(f, st: dict, ledger: Ledger, side: str, sym: str,
-          px: float, qty: float, reason: str, broker=None) -> bool:
+          px: float, qty: float, reason: str, broker=None,
+          arm: str = "fast", day: str = "", tick: str = "") -> bool:
     """Execute one side. Returns False if the venue refused the order.
 
     A rejection is a result, not an error: a $50 cash account genuinely
@@ -96,27 +110,40 @@ def _fill(f, st: dict, ledger: Ledger, side: str, sym: str,
         # Snapshot the market BEFORE the order goes out, so the recorded
         # midpoint is the one the order crossed rather than the one it moved.
         snap = broker.quote_snapshot(sym) if hasattr(broker, "quote_snapshot") else {}
+        iid = intent_id(arm, day, tick, side, sym)
+        decision_ts = datetime.now(ET).isoformat()
         if side == "buy":
             result = broker.submit({"symbol": sym, "side": "buy",
-                                    "notional": round(qty * px, 2)})
+                                    "notional": round(qty * px, 2),
+                                    "client_order_id": iid})
         else:
             result = broker.close(sym)
         status = str(result.get("status", "")).lower()
+        if status == "duplicate_suppressed":
+            # Already sent. Not an error and not a new position.
+            ledger.write("fast_duplicate_suppressed", intent_id=iid, side=side,
+                         symbol=sym, detail=result.get("detail"))
+            return False
         if "reject" in status or "cancel" in status:
-            ledger.write("fast_rejected", side=side, symbol=sym,
-                         status=result.get("status"), reason=reason)
+            ledger.write("fast_rejected", intent_id=iid, side=side, symbol=sym,
+                         status=result.get("status"), reason=reason, **snap)
             return False
         st["cost_accrued"] = round(st.get("cost_accrued", 0.0) + cost, 6)
         if side == "buy":
             st["or_low"][sym] = st["or_low"].get(sym)
         else:
             st["or_low"].pop(sym, None)
-        ledger.write("fast_order", side=side, symbol=sym, px=round(px, 4),
-                     qty=round(qty, 6), notional=round(qty * px, 2),
+        ledger.write("fast_order", intent_id=iid, arm=arm, side=side,
+                     symbol=sym, px=round(px, 4), qty=round(qty, 6),
+                     notional=round(qty * px, 2),
                      modeled_cost=round(cost, 4), reason=reason,
                      status=result.get("status"),
                      broker_order_id=result.get("broker_order_id"),
-                     **snap)
+                     decision_ts=decision_ts,
+                     submitted_at=result.get("submitted_at"),
+                     filled_qty=result.get("filled_qty"),
+                     filled_avg_price=result.get("filled_avg_price"),
+                     scheduled_tick=tick, **snap)
         return True
 
     # simulated engine: cost is taken inside the fill price
@@ -174,6 +201,9 @@ def run_fast_once(cfg: Config, broker, now: datetime | None = None,
         return {"status": "market_closed"}
 
     new_day = st.get("day") != today
+    # Identifies the tick within the day, so a retry of the SAME tick
+    # regenerates the same intent ids while the next tick gets fresh ones.
+    tick_key = now.strftime("%H:%M")
 
     if f.universe_mode == "most_active":
         universe = broker.most_actives(f.universe_size)
@@ -191,7 +221,7 @@ def run_fast_once(cfg: Config, broker, now: datetime | None = None,
         for sym, pos in list(_positions(f, broker, st).items()):
             px = lasts.get(sym, pos.get("last_px", pos["entry_px"]))
             _fill(f, st, ledger, "sell", sym, px, pos["qty"],
-                  "overnight_flatten", broker)
+                  "overnight_flatten", broker, arm, today, "new_day")
         st.update({"day": today, "trades_today": 0, "stopped_today": False})
     if st.get("day_start_equity") is None or st.get("day") != today or \
        "day_equity_set" not in st:
@@ -211,7 +241,7 @@ def run_fast_once(cfg: Config, broker, now: datetime | None = None,
         for sym, pos in list(_positions(f, broker, st).items()):
             _fill(f, st, ledger, "sell", sym,
                   lasts.get(sym, pos.get("last_px", pos["entry_px"])),
-                  pos["qty"], "drawdown_kill", broker)
+                  pos["qty"], "drawdown_kill", broker, arm, today, tick_key)
         st["halted"] = True
         ledger.write("fast_halt", arm=arm, reason=f"drawdown {dd:.1f}%")
         _save_state(state_path, st)
@@ -223,7 +253,7 @@ def run_fast_once(cfg: Config, broker, now: datetime | None = None,
     if not st["stopped_today"] and day_pnl_pct <= -f.daily_loss_stop_pct:
         for sym, pos in list(_positions(f, broker, st).items()):
             _fill(f, st, ledger, "sell", sym, lasts[sym], pos["qty"],
-                  "daily_loss_stop", broker)
+                  "daily_loss_stop", broker, arm, today, tick_key)
         st["stopped_today"] = True
         ledger.write("fast_day_stop", arm=arm, day_pnl_pct=round(day_pnl_pct, 3))
 
@@ -231,7 +261,7 @@ def run_fast_once(cfg: Config, broker, now: datetime | None = None,
     if now >= flat_dt:
         for sym, pos in list(_positions(f, broker, st).items()):
             _fill(f, st, ledger, "sell", sym, lasts[sym], pos["qty"],
-                  "eod_flat", broker)
+                  "eod_flat", broker, arm, today, tick_key)
     elif not st["stopped_today"] and now >= or_end:
         ors = {}
         for sym, df in bars.items():
@@ -245,7 +275,7 @@ def run_fast_once(cfg: Config, broker, now: datetime | None = None,
             floor = st["or_low"].get(sym, ors.get(sym, (0, 0))[1])
             if floor and sym in lasts and lasts[sym] < floor:
                 _fill(f, st, ledger, "sell", sym, lasts[sym], pos["qty"],
-                      "or_low_stop", broker)
+                      "or_low_stop", broker, arm, today, tick_key)
 
         # entries: breakouts above OR high, ranked by strength
         held = _positions(f, broker, st)
@@ -271,7 +301,7 @@ def run_fast_once(cfg: Config, broker, now: datetime | None = None,
             qty = notional / lasts[sym]
             if not _fill(f, st, ledger, "buy", sym, lasts[sym], qty,
                          f"breakout +{strength:.2%} above OR high {hi:.2f}",
-                         broker):
+                         broker, arm, today, tick_key):
                 continue
             st["or_low"][sym] = lo
             st["trades_today"] += 1

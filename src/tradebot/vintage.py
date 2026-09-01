@@ -1,0 +1,186 @@
+"""Research vintages: one future per information state, not one per strategy.
+
+A separate untouched window for every strategy would make calendar time the
+binding constraint almost immediately. It is also more than the logic
+requires. What must be unseen is the DATA, and every strategy frozen before a
+window opens is equally blind to it — so a whole cohort can share one future.
+
+    VINTAGE 001   information cutoff 2026-08-31
+                  30 candidates, 30 tested, 4 promoted, decisions FROZEN
+                  future window 2026-09-01 -> 2026-10-31
+
+All four promoted strategies may be judged on that window. Once it is opened
+and inspected it is spent for anything created afterwards, because anything
+created afterwards could have been informed by it.
+
+The point of the cohort is not efficiency. It is that it makes the SELECTOR
+measurable. Freeze the rejected strategies and some random and null ones
+alongside the promoted, judge them all on the same window, and the question
+stops being "did strategy 17 work" and becomes "does this process pick future
+survivors better than chance". A single strategy is a sample of size one; a
+cohort with controls is an experiment about the research engine.
+
+Everything is reported twice — by strategy and by lineage — because twenty
+descendants of one idea are not twenty discoveries.
+"""
+from __future__ import annotations
+
+import json
+from dataclasses import dataclass, field
+from datetime import date, datetime, timezone
+from pathlib import Path
+
+ARMS = ("promoted", "rejected", "random", "null")
+
+
+class VintageError(RuntimeError):
+    pass
+
+
+@dataclass
+class Member:
+    strategy_id: str
+    lineage: str
+    cohort: str                 # one of ARMS
+    research_rank: int | None = None   # the system's own ordering, 1 = best
+    survived: bool | None = None       # filled after the window opens
+
+
+@dataclass
+class Vintage:
+    path: Path
+    name: str
+    information_cutoff: date
+    window_start: date
+    window_end: date
+    members: list[Member] = field(default_factory=list)
+    frozen_at: str | None = None
+    opened_at: str | None = None
+
+    # ---- lifecycle -------------------------------------------------------
+    def add(self, m: Member) -> None:
+        if self.frozen_at:
+            raise VintageError(
+                f"{self.name} was frozen at {self.frozen_at}. A strategy added "
+                "now could have been informed by results this cohort produced, "
+                "so it belongs to the next vintage.")
+        if m.cohort not in ARMS:
+            raise VintageError(f"cohort must be one of {ARMS}")
+        self.members.append(m)
+
+    def freeze(self) -> None:
+        if not any(m.cohort == "promoted" for m in self.members):
+            raise VintageError("a vintage with no promoted strategies cannot "
+                               "measure selection")
+        if not any(m.cohort != "promoted" for m in self.members):
+            raise VintageError("controls are required — without rejected, "
+                               "random or null members there is nothing to "
+                               "compare the selector against")
+        self.frozen_at = datetime.now(timezone.utc).isoformat()
+        self.save()
+
+    def open_window(self) -> None:
+        if not self.frozen_at:
+            raise VintageError("freeze the cohort before opening its window")
+        if not self.opened_at:
+            self.opened_at = datetime.now(timezone.utc).isoformat()
+            self.save()
+
+    # ---- persistence -----------------------------------------------------
+    def save(self) -> None:
+        self.path.write_text(json.dumps({
+            "name": self.name,
+            "information_cutoff": str(self.information_cutoff),
+            "window_start": str(self.window_start),
+            "window_end": str(self.window_end),
+            "frozen_at": self.frozen_at, "opened_at": self.opened_at,
+            "members": [m.__dict__ for m in self.members],
+        }, indent=2) + "\n")
+
+    @classmethod
+    def load(cls, path: Path) -> "Vintage":
+        d = json.loads(path.read_text())
+        v = cls(path=path, name=d["name"],
+                information_cutoff=date.fromisoformat(d["information_cutoff"]),
+                window_start=date.fromisoformat(d["window_start"]),
+                window_end=date.fromisoformat(d["window_end"]),
+                frozen_at=d.get("frozen_at"), opened_at=d.get("opened_at"))
+        v.members = [Member(**m) for m in d["members"]]
+        return v
+
+
+def _rate(members: list[Member]) -> tuple[int, int]:
+    judged = [m for m in members if m.survived is not None]
+    return sum(1 for m in judged if m.survived), len(judged)
+
+
+def rank_correlation(members: list[Member]) -> float | None:
+    """Spearman rho between the system's research ranking and survival.
+
+    If the engine ranks ten strategies and that ordering has no relationship
+    to what survives, then even a winner among them is not evidence that the
+    selection mechanism carries information.
+    """
+    # Rank 1 is the system's best pick, so the raw correlation between rank
+    # and survival is negative when the selector works. Sign is flipped here
+    # so the reported number reads the obvious way: positive means the
+    # ranking predicts survival, zero means it carries no information.
+    pairs = [(-m.research_rank, 1.0 if m.survived else 0.0) for m in members
+             if m.research_rank is not None and m.survived is not None]
+    if len(pairs) < 3:
+        return None
+    from .stats import spearman_rho
+    return spearman_rho([p[0] for p in pairs], [p[1] for p in pairs])
+
+
+def process_ledger(vintages: list[Vintage]) -> str:
+    """What the research engine did, not what any one strategy did."""
+    by_cohort = {c: [] for c in ARMS}
+    lineages: dict[str, dict] = {}
+    for v in vintages:
+        for m in v.members:
+            by_cohort[m.cohort].append(m)
+            L = lineages.setdefault(m.lineage, {"cohort": m.cohort,
+                                                "survived": False, "judged": False})
+            if m.survived is not None:
+                L["judged"] = True
+                L["survived"] = L["survived"] or bool(m.survived)
+
+    lines = ["PROCESS LEDGER", "",
+             f"  {'Research vintages':<32}{len(vintages):>8,}",
+             f"  {'Strategies frozen':<32}"
+             f"{sum(len(v.members) for v in vintages):>8,}",
+             f"  {'Distinct lineages':<32}{len(lineages):>8,}", "",
+             "  Out-of-sample survival, by strategy:"]
+    rates = {}
+    for c in ARMS:
+        hit, n = _rate(by_cohort[c])
+        rates[c] = (hit / n) if n else None
+        pct = f"{hit / n:6.1%}" if n else "     --"
+        lines.append(f"    {c:<28}{hit:>4} / {n:<6}{pct}")
+
+    lines += ["", "  Out-of-sample survival, by lineage:"]
+    for c in ARMS:
+        group = [L for L in lineages.values() if L["cohort"] == c and L["judged"]]
+        hit, n = sum(1 for L in group if L["survived"]), len(group)
+        pct = f"{hit / n:6.1%}" if n else "     --"
+        lines.append(f"    {c:<28}{hit:>4} / {n:<6}{pct}")
+
+    base = next((rates[c] for c in ("rejected", "random", "null")
+                 if rates.get(c)), None)
+    if rates.get("promoted") is not None and base:
+        lines += ["", f"  {'Selection lift vs controls':<32}"
+                      f"{rates['promoted'] / base:>7.1f}x"]
+    elif rates.get("promoted") is not None:
+        lines += ["", "  Selection lift               not computable — controls",
+                  "  have zero survivors, so the ratio is undefined rather than",
+                  "  infinite. Report the counts, not a lift."]
+
+    rho = rank_correlation([m for v in vintages for m in v.members])
+    if rho is not None:
+        lines += ["", f"  {'Research rank vs survival (rho)':<32}{rho:>8.3f}",
+                  "  A ranking unrelated to what survives means the selector is",
+                  "  not demonstrating information, whatever any single result did."]
+    lines += ["", "  Lineage rows exist so that twenty descendants of one idea",
+              "  cannot make the process look like twenty discoveries."]
+    return "\n".join(lines)

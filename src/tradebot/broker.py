@@ -108,6 +108,28 @@ class AlpacaBroker:
     def account_number(self) -> str:
         return str(self._trading.get_account().account_number)
 
+    def account_regime(self) -> dict:
+        """What the broker actually thinks this account is.
+
+        FINRA's day-trading margin framework changed on 2026-06-04 with a
+        transition period running to 2027-10-20, so implementations differ
+        between firms and can change under us. A $50 account is below the
+        $2,000 margin minimum, which usually means cash treatment and T+1
+        settlement — but that is an assumption until the broker says so, and
+        the fast arm's six-trades-a-day budget depends on the answer.
+        """
+        a = self._trading.get_account()
+        return {"multiplier": str(getattr(a, "multiplier", "?")),
+                "shorting_enabled": bool(getattr(a, "shorting_enabled", False)),
+                "pattern_day_trader": bool(getattr(a, "pattern_day_trader", False)),
+                "daytrade_count": int(getattr(a, "daytrade_count", 0) or 0),
+                "daytrading_buying_power":
+                    str(getattr(a, "daytrading_buying_power", "?")),
+                "non_marginable_buying_power":
+                    str(getattr(a, "non_marginable_buying_power", "?")),
+                "status": str(getattr(a, "status", "?")),
+                "trading_blocked": bool(getattr(a, "trading_blocked", False))}
+
     def positions(self) -> dict[str, float]:
         return {p.symbol: float(p.market_value)
                 for p in self._trading.get_all_positions()}
@@ -183,14 +205,31 @@ class AlpacaBroker:
         from alpaca.trading.enums import OrderSide, TimeInForce
         kw = {"qty": order["qty"]} if order.get("qty") \
             else {"notional": round(order["notional"], 2)}
+        if order.get("client_order_id"):
+            # Broker-enforced idempotency. Alpaca rejects a duplicate
+            # client_order_id, so a retried workflow, a dropped connection
+            # after submission, or a restarted leg cannot place the same
+            # order twice. Cheaper and far more reliable than trying to
+            # reconstruct intent from our own state after a crash.
+            kw["client_order_id"] = order["client_order_id"]
         req = MarketOrderRequest(
             symbol=order["symbol"],
             side=OrderSide.BUY if order["side"] == "buy" else OrderSide.SELL,
             time_in_force=TimeInForce.DAY,
             **kw,
         )
-        resp = self._trading.submit_order(req)
-        return {**order, "status": str(resp.status), "broker_order_id": str(resp.id)}
+        try:
+            resp = self._trading.submit_order(req)
+        except Exception as exc:
+            if "client_order_id" in str(exc).lower() or "duplicate" in str(exc).lower():
+                return {**order, "status": "duplicate_suppressed",
+                        "detail": str(exc)[:200]}
+            raise
+        return {**order, "status": str(resp.status),
+                "broker_order_id": str(resp.id),
+                "submitted_at": str(getattr(resp, "submitted_at", "")),
+                "filled_qty": float(getattr(resp, "filled_qty", 0) or 0),
+                "filled_avg_price": float(getattr(resp, "filled_avg_price", 0) or 0)}
 
 
     def close(self, symbol: str) -> dict:

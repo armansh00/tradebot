@@ -23,6 +23,40 @@ import numpy as np
 EULER = 0.5772156649015329
 
 
+def _ranks(values: list[float]) -> list[float]:
+    """Ranks with ties AVERAGED, which is the actual definition.
+
+    Breaking ties by position instead invents variance that is not in the
+    data: a constant series gets ranks 1..n and then correlates perfectly
+    with anything. That bug reported rho = -1.0 for a set of strategies whose
+    outcomes were all identical.
+    """
+    order = sorted(range(len(values)), key=lambda i: values[i])
+    out = [0.0] * len(values)
+    i = 0
+    while i < len(order):
+        j = i
+        while j + 1 < len(order) and values[order[j + 1]] == values[order[i]]:
+            j += 1
+        avg = (i + j) / 2 + 1
+        for k in range(i, j + 1):
+            out[order[k]] = avg
+        i = j + 1
+    return out
+
+
+def spearman_rho(x: list[float], y: list[float]) -> float | None:
+    """None when either series is constant — no ranking information exists."""
+    n = len(x)
+    if n < 2:
+        return None
+    rx, ry = _ranks(list(x)), _ranks(list(y))
+    mx, my = sum(rx) / n, sum(ry) / n
+    num = sum((a - mx) * (b - my) for a, b in zip(rx, ry))
+    den = (sum((a - mx) ** 2 for a in rx) * sum((b - my) ** 2 for b in ry)) ** 0.5
+    return round(num / den, 3) if den else None
+
+
 def norm_cdf(x: float) -> float:
     return 0.5 * (1.0 + math.erf(x / math.sqrt(2.0)))
 

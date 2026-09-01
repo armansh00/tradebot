@@ -216,3 +216,59 @@ def test_a_broken_quote_feed_never_blocks_a_trade(cfg):
     result = run_fast_once(cfg, acct, arm="fast")
     assert result["status"] == "ok"
     assert "SPY" in acct.positions_detail()   # traded anyway
+
+
+def test_the_same_tick_regenerates_the_same_intent_id(cfg):
+    """A retried leg must produce an identical client_order_id, so the broker
+    refuses the duplicate. Submitting twice is a far worse failure than a few
+    basis points of slippage."""
+    from tradebot.fastarm import intent_id
+    a = intent_id("fast", "2026-09-01", "10:05", "buy", "SPY")
+    assert a == intent_id("fast", "2026-09-01", "10:05", "buy", "SPY")
+    # and every axis that should separate two orders, does
+    assert a != intent_id("movers", "2026-09-01", "10:05", "buy", "SPY")
+    assert a != intent_id("fast", "2026-09-02", "10:05", "buy", "SPY")
+    assert a != intent_id("fast", "2026-09-01", "10:35", "buy", "SPY")
+    assert a != intent_id("fast", "2026-09-01", "10:05", "sell", "SPY")
+    assert a != intent_id("fast", "2026-09-01", "10:05", "buy", "QQQ")
+    assert a.startswith("tb-")
+
+
+def test_intent_id_is_sent_as_client_order_id(cfg):
+    acct = _mk({"SPY": "breakout", "QQQ": "inside"}, 10, 5)
+    run_fast_once(cfg, acct, arm="fast")
+    buys = [o for o in acct.orders if o.get("side") == "buy"]
+    assert buys and all(o["client_order_id"].startswith("tb-") for o in buys)
+
+
+def test_a_duplicate_is_suppressed_not_counted_as_a_position(cfg):
+    """Simulates the dangerous case: the order already reached the broker and
+    the leg restarted."""
+    import json
+    acct = _mk({"SPY": "breakout", "QQQ": "inside"}, 10, 5)
+    acct.submit = lambda order: {**order, "status": "duplicate_suppressed",
+                                 "detail": "client_order_id already exists"}
+    result = run_fast_once(cfg, acct, arm="fast")
+    assert result["status"] == "ok"
+    assert acct.positions_detail() == {}
+    events = [json.loads(l) for l in cfg.fast_ledger_path.read_text().splitlines()]
+    assert any(e["type"] == "fast_duplicate_suppressed" for e in events)
+    assert not any(e["type"] == "fast_order" for e in events)
+    st = json.loads(cfg.fast_state_path.read_text())
+    assert st["trades_today"] == 0 and st["cost_accrued"] == 0.0
+
+
+def test_every_order_carries_the_execution_audit_fields(cfg):
+    import json
+    acct = _mk({"SPY": "breakout", "QQQ": "inside"}, 10, 5)
+    acct.quote_snapshot = lambda sym: {"bid": 99.0, "ask": 99.1, "mid": 99.05,
+                                       "spread_bps": 10.1}
+    run_fast_once(cfg, acct, arm="fast")
+    orders = [json.loads(l) for l in cfg.fast_ledger_path.read_text().splitlines()
+              if json.loads(l)["type"] == "fast_order"]
+    assert orders
+    for o in orders:
+        for field in ("intent_id", "arm", "symbol", "side", "qty", "notional",
+                      "decision_ts", "scheduled_tick", "bid", "ask", "mid",
+                      "modeled_cost", "reason"):
+            assert field in o, f"missing {field}"

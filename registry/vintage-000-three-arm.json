@@ -1,0 +1,69 @@
+{
+  "arms": {
+    "fast": {
+      "account": "PA325MHD2LMK",
+      "cost_bps_per_side": 5,
+      "daily_loss_stop_pct": 3.0,
+      "flat_minutes_before_close": 30,
+      "max_trades_per_day": 6,
+      "rule": "opening range breakout, 30-minute range",
+      "top_k": 2,
+      "universe": [
+        "SPY",
+        "QQQ",
+        "AAPL",
+        "MSFT",
+        "NVDA",
+        "TSLA",
+        "AMZN",
+        "META"
+      ]
+    },
+    "movers": {
+      "account": "PA3OA9V82LF5",
+      "cost_bps_per_side": 15,
+      "max_trades_per_day": 6,
+      "min_price": 5.0,
+      "rule": "opening range breakout on the 10 most active names",
+      "top_k": 2,
+      "universe_mode": "most_active",
+      "universe_size": 10
+    },
+    "slow": {
+      "account": "PA34GE36D3Q5",
+      "book_cap": 50.0,
+      "cash_buffer_pct": 5,
+      "cost_bps_per_side": 0,
+      "rule": "dual momentum, 12-1 with 200d SMA filter",
+      "top_n": 2,
+      "universe": [
+        "SPY",
+        "QQQ",
+        "IWM",
+        "EFA",
+        "TLT",
+        "GLD"
+      ]
+    }
+  },
+  "declared_before_test": true,
+  "execution": {
+    "cost_treatment": "modeled cost accrued separately; quotes recorded per fill",
+    "fills": "real paper orders in separate $50 accounts",
+    "idempotency": "deterministic client_order_id per (arm, day, tick, side, symbol)",
+    "schedule": "in-process, exchange calendar, seven staggered start crons"
+  },
+  "failure_criteria": "any arm failing its criterion is reported as failed; no criterion may be changed after 2026-09-01",
+  "hypothesis": "Does trading more often beat trading less often, at $50, net of costs? Three cadences race: patience, frequency on quality, frequency on heat.",
+  "information_cutoff": "2026-08-31",
+  "name": "vintage-000-three-arm",
+  "prior": "all three arms fail; frequency is expected to lose to costs",
+  "success_criteria": {
+    "fast": "must beat the slow arm net of costs",
+    "movers": "must beat both other arms net of costs",
+    "slow": "net positive, max drawdown < 10%, zero manual overrides, >= 8 weeks"
+  },
+  "vintage": "000",
+  "window_end": "2026-10-26",
+  "window_start": "2026-09-01"
+}

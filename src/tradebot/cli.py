@@ -239,6 +239,17 @@ def main(argv: list[str] | None = None) -> int:
             print(f"{arm:7} account {b.account_number()}  "
                   f"equity ${b.equity():,.2f}  cash ${b.cash():,.2f}  "
                   f"fills={mode}  positions {list(b.positions_detail())}")
+            try:
+                r = b.account_regime()
+                print(f"        multiplier={r['multiplier']} "
+                      f"pdt={r['pattern_day_trader']} "
+                      f"daytrades={r['daytrade_count']} "
+                      f"shorting={r['shorting_enabled']} "
+                      f"dt_bp={r['daytrading_buying_power']} "
+                      f"non_marg_bp={r['non_marginable_buying_power']} "
+                      f"status={r['status']} blocked={r['trading_blocked']}")
+            except Exception as exc:
+                print(f"        account regime unavailable: {exc}")
         return 0
 
     if cmd == "session":
