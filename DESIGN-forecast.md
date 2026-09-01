@@ -80,10 +80,31 @@ one:
     information_as_of:   22:29:30
 
 A program running at 22:30 can consume a source published, revised or
-timestamped later. The stronger version: hash the actual input data, not only
-its timestamp — vendors revise bars, and a revision that silently changes
-history is then detectable by re-fetching and comparing. This is the vault
-rule applied to forecasting.
+timestamped later. Four fields, because they fail differently:
+
+    data hash        catches a vendor revising the numbers
+    information_as_of catches consuming something published later
+    vendor / source   catches the same field meaning different things elsewhere
+    parser commit     catches the raw data staying identical while a later
+                      code change interprets it differently
+
+The parser version is the one most easily forgotten, and it is separate from
+the model version: the model can be untouched while a change to how a bar is
+read silently alters every input. So each forecast records:
+
+    FORECAST 2026-09-02
+      information_as_of:   2026-09-01 22:29:30 ET
+      forecast_created_at: 2026-09-01 22:30:04 ET
+      source:              ...
+      raw_input_hash:      ...
+      parser_commit:       ...
+      model_commit:        ...
+      forecast_spec_hash:  ...
+      forecast_output:     ...
+
+Then when data are revised later, "what the model knew that night" and "what
+the vendor now says happened that night" remain distinguishable. This is the
+vault rule applied to forecasting.
 
 ## What the forecast may and may not do
 
