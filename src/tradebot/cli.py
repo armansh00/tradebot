@@ -130,6 +130,39 @@ def main(argv: list[str] | None = None) -> int:
         print(f"\nwritten to {path.relative_to(cfg.root)}")
         return 0
 
+    if cmd == "rotate":
+        try:
+            from dotenv import load_dotenv
+            load_dotenv(cfg.root / ".env")
+        except ImportError:
+            pass
+        import datetime as _dt
+        from .broker import AlpacaBroker
+        from .reversal import daily_returns, report, rotate
+        broker = AlpacaBroker(*cfg.creds("fast"))
+        # Reuse the universes already fixed in config rather than picking new
+        # names now — choosing a stock list after seeing history is the
+        # cheapest way to manufacture a result.
+        symbols = sorted(set(cfg.fast.universe) | set(cfg.universe))
+        closes = broker.daily_closes(symbols, 500)
+        rets = daily_returns(closes)
+        results = [rotate(rets, direction=d, k=k,
+                          cost_bps_per_side=cfg.fast.cost_bps_per_side)
+                   for d in ("losers", "winners") for k in (1, 2, 3)]
+        text = report(results, symbols, cfg.fast.cost_bps_per_side)
+        header = (f"# Rotation test — buy yesterday's losers vs winners\n\n"
+                  f"{len(rets)} trading days of daily closes.\n"
+                  "Hypothesis under test: a stock that fell yesterday is "
+                  "likelier to rise today, so rotating between names compounds "
+                  "many small edges. Short-term reversal, Jegadeesh (1990) and "
+                  "Lehmann (1990).\n\n")
+        out = cfg.root / "sweeps"
+        out.mkdir(exist_ok=True)
+        path = out / f"{_dt.date.today().isoformat()}-rotation.md"
+        path.write_text(header + text + "\n")
+        print(header + text)
+        return 0
+
     if cmd == "flatten":
         from .broker import AlpacaBroker
         try:
@@ -208,7 +241,7 @@ def main(argv: list[str] | None = None) -> int:
         return 0
 
     print("Usage: python -m tradebot "
-          "[run|run-fast|run-movers|session|verify|flatten|sweep|chat|status|pnl|why SYM|decisions|report|evaluate|compare|kill|resume]")
+          "[run|run-fast|run-movers|session|verify|flatten|sweep|rotate|chat|status|pnl|why SYM|decisions|report|evaluate|compare|kill|resume]")
     return 0 if cmd == "help" else 1
 
 

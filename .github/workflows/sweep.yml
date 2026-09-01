@@ -19,6 +19,12 @@ jobs:
         with:
           python-version: "3.12"
       - run: pip install -r requirements.txt
+      - name: Rotation test (buy yesterday's losers vs winners)
+        env:
+          ALPACA_FAST_KEY: ${{ secrets.ALPACA_FAST_KEY }}
+          ALPACA_FAST_SECRET: ${{ secrets.ALPACA_FAST_SECRET }}
+        run: PYTHONPATH=src python -m tradebot rotate
+
       - name: Replay the grid
         env:
           ALPACA_FAST_KEY: ${{ secrets.ALPACA_FAST_KEY }}
