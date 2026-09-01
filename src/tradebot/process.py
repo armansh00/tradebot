@@ -33,6 +33,8 @@ from __future__ import annotations
 import math
 from dataclasses import dataclass
 
+from dataclasses import field
+
 from .stats import norm_ppf
 
 
@@ -54,6 +56,33 @@ class VintageDelta:
     lineages_promoted: int
     lineages_pool: int
     commissioning: bool = False   # excluded from confirmatory inference
+    null_sd: float = 0.0
+    null_scores: list = field(default_factory=list)
+    null_method: str = "monte_carlo"
+    draws: int = 0
+    window_start: str | None = None
+    window_end: str | None = None
+    rho: float = 0.2              # within-vintage outcome correlation
+    metric_name: str = "net OOS expectancy"
+
+    @property
+    def z(self) -> float:
+        return (self.delta / self.null_sd) if self.null_sd else 0.0
+
+    @property
+    def n_effective(self) -> float:
+        return design_effect(self.lineages_promoted, self.rho)
+
+    @property
+    def weight(self) -> float:
+        """sqrt(n_effective), not head count.
+
+        A 40-lineage vintage does not carry forty-sixths the information of a
+        six-lineage one; the design effect already says so. The rule is fixed
+        here rather than chosen per analysis, because a weighting scheme
+        picked after seeing which vintages worked is one more knob.
+        """
+        return math.sqrt(max(self.n_effective, 1e-9))
 
     def lines(self) -> list[str]:
         return [
@@ -106,6 +135,58 @@ def stouffer_combine(p_values: list[float], weights: list[float] | None = None
     return round(1 - norm_cdf(num / den), 5) if den else 1.0
 
 
+def windows_overlap(deltas: list[VintageDelta]) -> bool:
+    """Do any two confirmatory vintages share calendar time?
+
+    Fisher and Stouffer are calibrated for INDEPENDENT p-values. Vintages
+    evaluated over overlapping futures share market days, so their p-values
+    are dependent and combining them as fresh experiments inflates
+    significance. Brown's method covers that case; until it exists here,
+    overlap suppresses the combination rather than being ignored.
+    """
+    spans = [(d.window_start, d.window_end) for d in deltas
+             if d.window_start and d.window_end]
+    for i, (a0, a1) in enumerate(spans):
+        for b0, b1 in spans[i + 1:]:
+            if a0 <= b1 and b0 <= a1:
+                return True
+    return False
+
+
+def combined_permutation(deltas: list[VintageDelta], draws: int = 20_000,
+                         seed: int = 0) -> dict:
+    """The process-level result: how unusual is the COMBINED selector
+    advantage against repeated random selection from these same pools?
+
+    Preferred over Fisher as the primary statistic because it asks the
+    system's own question directly — rather than asking a generic formula
+    about p-values. Each vintage contributes a standardised score against its
+    own null; the combined statistic is the weighted Z, and its null comes
+    from drawing one score per vintage from that vintage's own permutation
+    distribution.
+    """
+    import random
+
+    usable = [d for d in deltas if d.null_scores and d.null_sd > 0]
+    if not usable:
+        return {"error": "no vintage has a usable null distribution"}
+    w = [d.weight for d in usable]
+    denom = math.sqrt(sum(x ** 2 for x in w))
+    observed = sum(wi * d.z for wi, d in zip(w, usable)) / denom
+
+    rng = random.Random(seed)
+    hits = 0
+    for _ in range(draws):
+        t = sum(wi * ((rng.choice(d.null_scores) - d.null_mean) / d.null_sd)
+                for wi, d in zip(w, usable)) / denom
+        if t >= observed:
+            hits += 1
+    return {"statistic": round(observed, 4), "draws": draws, "extreme": hits,
+            "p_value": round((hits + 1) / (draws + 1), 6),
+            "p_formula": "(b+1)/(B+1)", "vintages": len(usable),
+            "weights": [round(x, 3) for x in w]}
+
+
 def process_report(deltas: list[VintageDelta], rho_estimate: float = 0.2
                    ) -> str:
     confirmatory = [d for d in deltas if not d.commissioning]
@@ -125,21 +206,48 @@ def process_report(deltas: list[VintageDelta], rho_estimate: float = 0.2
         return "\n".join(out)
 
     ps = [d.p_value for d in confirmatory]
-    stat, df = fisher_combine(ps)
-    fisher_p = chi2_sf(stat, df)
-    stouffer_p = stouffer_combine(
-        ps, [float(d.lineages_promoted) for d in confirmatory])
     mean_delta = sum(d.delta for d in confirmatory) / len(confirmatory)
     positive = sum(1 for d in confirmatory if d.delta > 0)
+    overlap = windows_overlap(confirmatory)
 
-    m = sum(d.lineages_promoted for d in confirmatory) / len(confirmatory)
     out += [
         f"  {'Confirmatory vintages':<32}{len(confirmatory):>10}",
         f"  {'Mean selector advantage':<32}{mean_delta:>+10.4f}",
         f"  {'Vintages with advantage > 0':<32}"
         f"{positive:>4} of {len(confirmatory)}",
-        f"  {'Fisher combined p':<32}{fisher_p:>10.4f}",
-        f"  {'Stouffer combined p':<32}{stouffer_p:>10.4f}",
+        "",
+        "  PRIMARY - combined selector permutation",
+    ]
+    comb = combined_permutation(confirmatory)
+    if "error" in comb:
+        out.append(f"    unavailable: {comb['error']}")
+    else:
+        out += [
+            f"    weighted Z statistic  {comb['statistic']:>+10.4f}",
+            f"    null draws            {comb['draws']:>10,}",
+            f"    at least as extreme   {comb['extreme']:>10,}",
+            f"    p                     {comb['p_value']:>10.5f}  "
+            f"{comb['p_formula']}",
+            "    weights are sqrt(n_effective), fixed before any result",
+        ]
+    out += ["", "  SECONDARY - generic p-value combination (diagnostic only)"]
+    if overlap:
+        out += [
+            "    SUPPRESSED: confirmatory windows overlap in calendar time,",
+            "    so these p-values are dependent and Fisher and Stouffer are",
+            "    miscalibrated. Brown's method applies; until it exists here,",
+            "    no number is printed.",
+        ]
+    else:
+        stat, df = fisher_combine(ps)
+        out += [
+            f"    Fisher combined p     {chi2_sf(stat, df):>10.4f}",
+            f"    Stouffer combined p   "
+            f"{stouffer_combine(ps, [d.weight for d in confirmatory]):>10.5f}",
+        ]
+
+    m = sum(d.lineages_promoted for d in confirmatory) / len(confirmatory)
+    out += [
         "",
         f"  Mean lineages per vintage {m:.1f}; at an assumed within-vintage",
         f"  outcome correlation of {rho_estimate:.2f} that is about "

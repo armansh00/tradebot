@@ -26,6 +26,7 @@ descendants of one idea are not twenty discoveries.
 from __future__ import annotations
 
 import json
+import math
 from dataclasses import dataclass, field
 from datetime import date, datetime, timezone
 from pathlib import Path
@@ -235,16 +236,28 @@ def process_ledger(vintages: list[Vintage]) -> str:
 
 
 def selector_null(vintage: Vintage, *, metric: str = "oos_metric",
-                  draws: int = 10_000, seed: int = 0) -> dict:
+                  draws: int = 20_000, seed: int = 0) -> dict:
     """Did the gates beat drawing the same number of candidates at random
     from the pool they were actually given?
 
     Not a coin flip, and not a freshly generated strategy the gates never
     considered. The comparator is a random subset of the exact frozen
     executable pool, the same size as the promoted set, with the lineage
-    composition preserved — otherwise the null quietly differs from the
-    treatment in how concentrated it is on one idea.
+    composition preserved.
+
+    Two things the report must not overstate. If every admissible subset is
+    enumerated this is an exact conditional permutation test; if 20,000 are
+    sampled from a far larger space it is a Monte Carlo permutation test, and
+    the p-value is (b + 1) / (B + 1) so that a finite run cannot claim the
+    impossible certainty of p = 0.
+
+    Controls are deliberately NOT matched on the characteristics the gates
+    select for — volatility, turnover, beta. Matching those away would
+    match away the thing under test. Whether selecting on them helped is
+    precisely the question; whether it helped for reasons other than market
+    exposure is answered by running this on a factor-adjusted metric too.
     """
+    import itertools
     import random
 
     pool = [m for m in vintage.executable_pool()
@@ -256,41 +269,52 @@ def selector_null(vintage: Vintage, *, metric: str = "oos_metric",
     score = lambda group: sum(getattr(m, metric) for m in group) / len(group)
     observed = score(promoted)
 
-    # preserve how many picks came from each lineage
-    want = {}
+    want: dict[str, int] = {}
     for m in promoted:
         want[m.lineage] = want.get(m.lineage, 0) + 1
-    by_lineage = {}
+    by_lineage: dict[str, list] = {}
     for m in pool:
         by_lineage.setdefault(m.lineage, []).append(m)
 
-    rng = random.Random(seed)
-    hits, usable = 0, 0
-    for _ in range(draws):
-        pick = []
-        for lin, k in want.items():
-            available = by_lineage.get(lin, [])
-            if len(available) < k:
-                pick = []
-                break
-            pick += rng.sample(available, k)
-        if not pick:
-            continue
-        usable += 1
-        if score(pick) >= observed:
-            hits += 1
-    if not usable:
-        # not enough candidates per lineage to match the structure
+    matched = all(len(by_lineage.get(lin, [])) >= k for lin, k in want.items())
+    if matched:
+        groups = [by_lineage[lin] for lin in want]
+        counts = [want[lin] for lin in want]
+        total = 1
+        for g, k in zip(groups, counts):
+            total *= math.comb(len(g), k)
+        note = "lineage-matched"
+    else:
+        groups, counts = [pool], [len(promoted)]
+        total = math.comb(len(pool), len(promoted))
+        note = "lineage matching not possible — unmatched draw used"
+
+    scores: list[float] = []
+    if total <= draws:
+        method = "exhaustive"
+        per_group = [list(itertools.combinations(g, k))
+                     for g, k in zip(groups, counts)]
+        for combo in itertools.product(*per_group):
+            scores.append(score([m for part in combo for m in part]))
+    else:
+        method = "monte_carlo"
         rng = random.Random(seed)
         for _ in range(draws):
-            pick = rng.sample(pool, len(promoted))
-            usable += 1
-            if score(pick) >= observed:
-                hits += 1
-        note = "lineage matching not possible — unmatched draw used"
-    else:
-        note = "lineage-matched draws"
+            pick = []
+            for g, k in zip(groups, counts):
+                pick += rng.sample(g, k)
+            scores.append(score(pick))
+
+    arr = sorted(scores)
+    b = sum(1 for x in scores if x >= observed)
+    B = len(scores)
+    mean = sum(scores) / B
+    sd = (sum((x - mean) ** 2 for x in scores) / max(B - 1, 1)) ** 0.5
+    p = (b / B) if method == "exhaustive" else ((b + 1) / (B + 1))
     return {"observed": round(observed, 6), "pool": len(pool),
-            "promoted": len(promoted), "draws": usable,
-            "p_value": round(hits / usable, 4) if usable else None,
-            "note": note}
+            "promoted": len(promoted), "draws": B, "extreme": b,
+            "null_mean": round(mean, 6), "null_sd": round(sd, 6),
+            "z": round((observed - mean) / sd, 4) if sd else None,
+            "p_value": round(p, 6), "null_method": method, "note": note,
+            "p_formula": "b/B" if method == "exhaustive" else "(b+1)/(B+1)",
+            "null_scores": arr}

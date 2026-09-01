@@ -190,4 +190,52 @@ def test_selector_null_preserves_lineage_concentration(tmp_path):
                      "rejected", state=EVIDENCE_REJECTED, oos_metric=0.5))
     v.freeze()
     out = selector_null(v, draws=500)
-    assert out["note"] == "lineage-matched draws"
+    assert out["note"] == "lineage-matched"
+
+
+def test_monte_carlo_p_uses_the_finite_run_correction(tmp_path):
+    """A sampled null cannot report p = 0. (b+1)/(B+1), and it says so."""
+    from tradebot.vintage import EVIDENCE_REJECTED, PROMOTED, selector_null
+    v = _v(tmp_path)
+    for i in range(4):
+        v.add(Member(f"p{i}", f"lin{i}", "promoted", state=PROMOTED,
+                     oos_metric=99.0))          # unbeatable
+    for i in range(60):
+        v.add(Member(f"r{i}", f"lin{i % 4}", "rejected",
+                     state=EVIDENCE_REJECTED, oos_metric=0.0))
+    v.freeze()
+    out = selector_null(v, draws=2000)
+    assert out["null_method"] == "monte_carlo"
+    assert out["p_formula"] == "(b+1)/(B+1)"
+    assert out["p_value"] > 0                   # never impossible certainty
+    assert out["p_value"] == pytest.approx(1 / (out["draws"] + 1), abs=1e-6)
+
+
+def test_a_small_pool_is_enumerated_exhaustively_and_labelled_so(tmp_path):
+    from tradebot.vintage import EVIDENCE_REJECTED, PROMOTED, selector_null
+    v = _v(tmp_path)
+    v.add(Member("p0", "lin0", "promoted", state=PROMOTED, oos_metric=1.0))
+    for i in range(5):
+        v.add(Member(f"r{i}", "lin0", "rejected", state=EVIDENCE_REJECTED,
+                     oos_metric=float(i) / 10))
+    v.freeze()
+    out = selector_null(v, draws=20_000)
+    assert out["null_method"] == "exhaustive"   # C(6,1) = 6 subsets
+    assert out["draws"] == 6
+    assert out["p_formula"] == "b/B"
+
+
+def test_selector_null_exposes_the_null_distribution_for_combination(tmp_path):
+    """Process-level combination needs each vintage's null, not just its p."""
+    from tradebot.vintage import EVIDENCE_REJECTED, PROMOTED, selector_null
+    v = _v(tmp_path)
+    for i in range(3):
+        v.add(Member(f"p{i}", f"lin{i}", "promoted", state=PROMOTED,
+                     oos_metric=0.8))
+    for i in range(30):
+        v.add(Member(f"r{i}", f"lin{i % 3}", "rejected",
+                     state=EVIDENCE_REJECTED, oos_metric=float(i % 5) / 10))
+    v.freeze()
+    out = selector_null(v, draws=4000)
+    assert len(out["null_scores"]) == out["draws"]
+    assert out["null_sd"] > 0 and out["z"] is not None
