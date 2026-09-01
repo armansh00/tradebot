@@ -17,11 +17,22 @@ up tomorrow".
 ## Score against a baseline, not against zero
 
 A Brier score of 0.24 sounds respectable and is **worse than a forecaster that
-ignores every input** and says 53.5% every night — roughly the unconditional
-base rate of up days. Report the **Brier skill score** against that
-climatological reference:
+ignores every input** and predicts the base rate every night. Report the
+**Brier skill score** against that climatological reference:
 
     BSS = 1 - BS / BS_reference
+
+**The reference itself must not look ahead.** Scoring a 2026 forecast against
+a 53.5% up-day rate partly learned from 2027 is a look-ahead in the baseline —
+subtler than a look-ahead in the model, and it flatters or punishes the model
+depending on which way the future went. Two references, both declared before
+launch:
+
+    primary    a fixed base rate from a training period strictly BEFORE the
+               study begins. Cannot drift, cannot be revised.
+    secondary  expanding window, using only days observed before t. Honest,
+               but very noisy in the first weeks, so it is a check rather
+               than the headline.
 
 Calibration alone is also insufficient. A model that says 55% every single
 night is perfectly calibrated and worthless. Report reliability and resolution
@@ -32,8 +43,14 @@ time, and does it say different numbers on different days".
 ## Forecast targets, ordered by what is actually forecastable
 
 1. **Range** — tomorrow's expected high-low move.
-2. **Volatility** — P(high-volatility session). Volatility clustering is one
-   of the most robust empirical facts in finance; a 1986 GARCH still works.
+2. **Volatility** — next-day realised variance. Volatility clustering is one
+   of the most robust empirical facts in finance, but that is not a reason to
+   assume GARCH wins: model rankings depend on the loss function, and simple
+   realised-measure or EWMA forecasts beat GARCH variants in some samples.
+   Baselines declared before launch — yesterday's realised volatility, and an
+   EWMA — and scored with **QLIKE** alongside a squared-error measure, since
+   the target is itself a proxy and error measures disagree about which model
+   wins.
 3. **Relative ranking** — P(name beats SPY tomorrow), cross-sectional.
 4. **Gap** — P(gap up / down) for watchlist names.
 5. **Direction** — P(index up). Last, with low expectations. Daily index
@@ -56,6 +73,18 @@ has an unvalidated oracle bolted onto its input.
 Every forecast is frozen before the session with a hash, and scored the
 following night. Yesterday's forecast is never rewritten.
 
+**Bind the hash to the information set, not the wall clock.** Two fields, not
+one:
+
+    forecast_created_at: 22:30:04
+    information_as_of:   22:29:30
+
+A program running at 22:30 can consume a source published, revised or
+timestamped later. The stronger version: hash the actual input data, not only
+its timestamp — vendors revise bars, and a revision that silently changes
+history is then detectable by re-fetching and comparing. This is the vault
+rule applied to forecasting.
+
 ## What the forecast may and may not do
 
     forecast -> premarket configuration -> strategy engine -> risk -> broker
@@ -75,6 +104,18 @@ v1 is:
 - cross-sectional relative-strength ranking
 - each frozen nightly with a hash, each scored against climatology
 
-That answers, within a couple of months and at zero data cost, whether the
+Ranking is evaluated by rank correlation with next-day returns AND by
+something economic: top group minus bottom group, after costs. Direction is
+recorded but does not carry the system.
+
+**No forecast may enable or disable a trading strategy in v1.** These are two
+experiments and running them as one destroys both:
+
+    1. Does the forecast contain information?
+    2. Does conditioning a strategy on it improve trading?
+
+The second is only worth asking after the first says yes.
+
+This answers, within a couple of months and at zero data cost, whether the
 forecasting layer contains any information at all — before paying for options
 data to feed a layer that may contain none.
