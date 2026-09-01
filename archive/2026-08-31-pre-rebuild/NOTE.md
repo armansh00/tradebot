@@ -30,6 +30,22 @@ Mixing simulated-fill days with broker-fill days inside one pre-registered
 window would make the comparison meaningless. Day one is the only clean place
 to make this change, so it was made here and the clock restarts.
 
+## Two more scheduler data points, logged after the fact
+
+`daily.yml`'s 13:40 UTC event was eventually delivered — at 19:37 UTC, five
+hours and fifty-seven minutes late, after this archive was written. It found
+the slow arm already holding the positions it wanted and placed no orders, so
+it is harmless, but it re-created `ledger.jsonl` and `state.json` at the repo
+root with a single run event. Together with Sunday's review cron at 3h50m
+late, that is two independent measurements of multi-hour delivery latency on
+this repository, plus three intraday events never delivered at all.
+
+The slow arm's QQQ and IWM positions carry into the restarted window. They
+were bought by the pre-registered rule at a legitimate price, and dual
+momentum would re-buy the same two names tomorrow, so flattening and
+re-entering would burn spread to achieve nothing. Stated here rather than
+quietly allowed.
+
 ## What is kept
 
 Everything: ledgers, state, the day's report, the missed-tick events. A

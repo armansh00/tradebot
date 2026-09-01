@@ -12,12 +12,16 @@ name: trading-session
 # Five independent start attempts, not one. GitHub drops individual scheduled
 # events under load rather than disabling the workflow, so five chances beat
 # one. Minutes are deliberately off the hour — top-of-hour is the documented
-# congestion peak. Duplicates are free: `concurrency` keeps at most one run,
+# congestion peak. Measured delays on this repo so far: Sunday's review cron
+# 3h50m late, Monday's daily cron 5h57m late, and three intraday events never
+# delivered at all — so the early starts are not paranoia. Duplicates are free: `concurrency` keeps at most one run,
 # _completed_ticks() skips work already done, and a start after the close
 # exits in seconds. The spread also absorbs DST, when the open moves from
 # 13:30 to 14:30 UTC.
 on:
   schedule:
+    - cron: "11 3 * * 1-5"     # earliest: survives a ~10h delivery delay
+    - cron: "29 5 * * 1-5"
     - cron: "17 8 * * 1-5"
     - cron: "23 10 * * 1-5"
     - cron: "41 11 * * 1-5"
@@ -79,6 +83,29 @@ jobs:
 
   leg3:
     needs: leg2
+    if: always()
+    runs-on: ubuntu-latest
+    timeout-minutes: 350
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install -r requirements.txt
+      - name: Trading session (paper account)
+        env:
+          ALPACA_API_KEY: ${{ secrets.ALPACA_API_KEY }}
+          ALPACA_SECRET_KEY: ${{ secrets.ALPACA_SECRET_KEY }}
+          ALPACA_FAST_KEY: ${{ secrets.ALPACA_FAST_KEY }}
+          ALPACA_FAST_SECRET: ${{ secrets.ALPACA_FAST_SECRET }}
+          ALPACA_MOVERS_KEY: ${{ secrets.ALPACA_MOVERS_KEY }}
+          ALPACA_MOVERS_SECRET: ${{ secrets.ALPACA_MOVERS_SECRET }}
+          TRADEBOT_AUTOCOMMIT: "1"
+          TRADEBOT_SESSION_DEADLINE_MIN: "340"
+        run: PYTHONPATH=src python -m tradebot session
+
+  leg4:
+    needs: leg3
     if: always()
     runs-on: ubuntu-latest
     timeout-minutes: 350
