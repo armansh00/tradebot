@@ -1,0 +1,62 @@
+STRATEGY: daily cross-sectional reversal | 603 days | 12 names
+
+DISCOVERY
+  long-only expectancy     +11.70 bp/day
+  t-stat                    +1.69
+  observations                602
+  FAIL
+
+LONG-SHORT (the hypothesis)
+  losers minus winners      +7.43 bp/day
+  t-stat                    +0.84
+  asks E[R|loser] > E[R|winner], not E[R|loser] > 0 — both legs carry
+  the market, so this is the reversal effect with beta removed
+  FAIL
+
+MULTIPLE TESTING
+  variants examined             3
+  observed max |t|          +0.84
+  null mean max |t|         +1.16  (400 shifted draws)
+  adjusted p-value          0.665
+  null preserves cross-section and autocorrelation; only the link
+  between yesterday's ranking and today's return is severed
+  FAIL
+
+BENCHMARK
+  vs cash                  +11.70 bp/day
+  vs SPY                   +4.68 bp/day   t +0.97
+  vs equal-weight           +3.98 bp/day   t +0.92
+  no factor model here — this is a beta-and-universe check,
+  not a Fama-French adjustment; stated so it is not overread
+  FAIL
+
+TRANSACTION COSTS
+  gross expectancy          +7.43 bp/day
+  modeled spread           -10.00 bp/day  (5 bps x 2 sides)
+  net expectancy            -2.57 bp/day
+  slippage and impact not yet separated — one lumped figure, and it is
+  an assumption, not a measurement (see Amendment 2026-09-01)
+  FAIL
+
+WALK-FORWARD
+  fold 1                   +23.73 bp/day   t +0.93
+  fold 2                   -29.22 bp/day   t -1.71
+  fold 3                    +6.81 bp/day   t +0.60
+  fold 4                   -11.49 bp/day   t -0.85
+  positive in 2 of 4 contiguous periods
+  FAIL
+
+PARAMETER STABILITY
+  k = 1                     -2.46 bp/day net
+  k = 2                     -7.35 bp/day net
+  k = 3                     -2.57 bp/day net
+  a region of agreement is evidence of a phenomenon; a single value
+  that works while its neighbours do not is an optimised parameter
+  PASS
+
+========================================
+                  REJECT                
+========================================
+
+Failed: DISCOVERY; LONG-SHORT (the hypothesis); MULTIPLE TESTING; BENCHMARK; TRANSACTION COSTS; WALK-FORWARD.
+Rejection is the expected outcome. A strategy that survives every gate has earned a paper test, not a live account.
