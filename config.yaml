@@ -92,3 +92,11 @@ movers_evaluation:
 sweep:
   thresholds_pct: [0.0, 0.25, 0.5, 1.0, 1.5, 2.0, 3.0]
   lookback_days: 30
+
+# Holdout, bound to a strategy rather than only to a date. Opening it is a
+# one-time act recorded in vault.json against a hash of the strategy's rules,
+# parameters, universe, cost model and acceptance criteria. A modified
+# strategy is a different strategy and does not inherit unseen data.
+vault:
+  research_end: "2026-01-31"
+  vault_start: "2026-02-01"

@@ -88,6 +88,21 @@ def equal_weight(rets: pd.DataFrame) -> np.ndarray:
     return rets.iloc[1:].mean(axis=1).dropna().to_numpy(dtype=float)
 
 
+def resolution_for(observed: float, null: np.ndarray) -> int:
+    """How many more draws this result deserves.
+
+    400 is plenty to establish that p is nowhere near 0.05. It is not enough
+    to resolve the tail if the observed statistic sits near the boundary,
+    where the answer actually depends on the third decimal.
+    """
+    p = float((null >= observed).mean())
+    if 0.01 <= p <= 0.15:
+        return 20000
+    if p < 0.01:
+        return 5000
+    return 0
+
+
 def shifted_null_max_t(rets: pd.DataFrame, ks: list[int], draws: int = 400,
                        seed: int = 0) -> tuple[np.ndarray, float]:
     """Empirical distribution of max |t| when the signal cannot work.
@@ -152,11 +167,17 @@ def evaluate(rets: pd.DataFrame, *, ks: list[int], cost_bps_per_side: float,
     # --- 3. multiple testing, computed not assumed -----------------------
     null, null_mean = shifted_null_max_t(rets, ks, draws=null_draws)
     observed_max = max(abs(t_stat(spread_returns(rets, k))) for k in ks)
+    extra = resolution_for(observed_max, null)
+    if extra:
+        # near the boundary the third decimal decides — buy the resolution
+        null, null_mean = shifted_null_max_t(rets, ks, draws=extra, seed=1)
     p_adj = float((null >= observed_max).mean())
     gates.append(Gate("MULTIPLE TESTING", p_adj < 0.05, [
         f"variants examined      {len(ks):8d}",
         f"observed max |t|       {observed_max:+8.2f}",
         f"null mean max |t|      {null_mean:+8.2f}  ({len(null)} shifted draws)",
+        "draw count is adaptive: a screening result gets 400, one anywhere",
+        "near the boundary gets 20,000, because the tail is where it matters",
         f"adjusted p-value       {p_adj:8.3f}",
         "null preserves cross-section and autocorrelation; only the link",
         "between yesterday's ranking and today's return is severed",
@@ -207,13 +228,16 @@ def evaluate(rets: pd.DataFrame, *, ks: list[int], cost_bps_per_side: float,
     # require a positive region, or "reliably bad" passes it. (Caught on the
     # first live run of this engine, 2026-09-01 — it had returned PASS for
     # k = -2.46, -7.35, -2.57 bp/day.)
-    stable = all(v > 0 for v in by_k.values())
-    gates.append(Gate("PARAMETER STABILITY", stable, [
+    consistent = len({np.sign(v) for v in by_k.values()}) == 1
+    viable = all(v > 0 for v in by_k.values())
+    gates.append(Gate("PARAMETER STABILITY", consistent and viable, [
         *[f"k = {k}                  {v:+8.2f} bp/day net" for k, v in by_k.items()],
-        "a positive region of agreement is evidence of a phenomenon; a single",
-        "value that works while its neighbours do not is an optimised",
-        "parameter; and unanimous agreement on a negative number is not",
-        "stability, it is a consistent loss",
+        f"sign consistency       {'PASS' if consistent else 'FAIL':>8}"
+        "   (neighbours agree — a region, not a lucky point)",
+        f"economic viability     {'PASS' if viable else 'FAIL':>8}"
+        "   (the region is above zero)",
+        "reported separately because a process can be perfectly stable at",
+        "losing money; consistency is not profitability",
     ]))
 
     return gates, all(g.passed for g in gates)

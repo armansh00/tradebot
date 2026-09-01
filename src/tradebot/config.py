@@ -84,6 +84,8 @@ class Config:
     fast_evaluation: FastEvalCfg
     movers_evaluation: MoversEvalCfg
     accounts: dict = field(default_factory=lambda: dict(DEFAULT_ACCOUNTS))
+    vault_dates: dict = field(default_factory=lambda: {
+        "research_end": "2026-01-31", "vault_start": "2026-02-01"})
     sweep: dict = field(default_factory=lambda: {
         "thresholds_pct": [0.0, 0.25, 0.5, 1.0, 1.5, 2.0, 3.0],
         "lookback_days": 30})
@@ -118,6 +120,14 @@ class Config:
         return self.root / "state_movers.json"
 
     @property
+    def vault_path(self) -> Path:
+        return self.root / "vault.json"
+
+    @property
+    def research_log_path(self) -> Path:
+        return self.root / "research_log.jsonl"
+
+    @property
     def reports_dir(self) -> Path:
         return self.root / "reports"
 
@@ -140,6 +150,8 @@ def load_config(root: str | os.PathLike | None = None) -> Config:
         fast_evaluation=FastEvalCfg(**raw["fast_evaluation"]),
         movers_evaluation=MoversEvalCfg(**raw["movers_evaluation"]),
         accounts={**DEFAULT_ACCOUNTS, **raw.get("accounts", {})},
+        vault_dates=raw.get("vault") or {"research_end": "2026-01-31",
+                                         "vault_start": "2026-02-01"},
         sweep=raw.get("sweep") or {"thresholds_pct": [0.0, 0.25, 0.5, 1.0,
                                                       1.5, 2.0, 3.0],
                                    "lookback_days": 30},

@@ -74,3 +74,48 @@ Leave the three live arms exactly as pre-registered until 26 October.
 The one thing not to do is add arms to the live experiment mid-window. That
 converts a pre-registered study into a fishing expedition, and no amount of
 analysis afterwards puts it back.
+
+
+---
+
+## What this became (2026-09-01)
+
+The threshold question turned into a validation engine, because the question
+behind it — "which variant works best?" — is the wrong question and answering
+it well requires machinery that answers a better one.
+
+The object being evaluated is the **research process**, not the best strategy
+it found. Concretely:
+
+- **REJECT is the default verdict.** Seven gates, all must pass: discovery,
+  long-short, multiple testing, benchmark, costs, walk-forward, parameter
+  stability. First live run failed six of seven.
+- **The long-short gate** tests E[R|loser] > E[R|winner] rather than
+  E[R|loser] > 0. Both legs carry the market, so the beta cancels. On real
+  data this moved the reversal result from t = 1.69 to t = 0.84.
+- **Multiple-testing correction is computed, not quoted.** A rule of thumb
+  assumes independent trials; variants of one trade are not independent. The
+  null shifts yesterday's ranking against today's returns, preserving
+  cross-section and autocorrelation. Draw count is adaptive — 400 to screen,
+  20,000 near the boundary.
+- **Stability is split into sign consistency and economic viability**, because
+  a process can be perfectly stable at losing money. The gate originally
+  returned PASS for three unanimously negative values.
+- **The vault** is a holdout bound to a hash of the strategy's rules,
+  parameters, universe, cost model and acceptance criteria — not merely to a
+  date. Opening it is recorded once. A tweaked strategy is a different
+  strategy and does not inherit unseen data. This closes the loophole where
+  repeated peeking silently converts a holdout into training data.
+- **The research budget** counts hypotheses, parameter combinations, distinct
+  strategies, vault openings and survivors, and is printed with every result.
+  A t-stat of 2.4 means one thing as the third idea tried and another as the
+  winner of forty-eight thousand.
+
+Still to build, in order: regime gates with definitions declared in advance;
+cost decomposition into spread, slippage, fees and impact with execution
+priced at the ask for buys and the bid for sells rather than at the midpoint;
+purged and embargoed cross-validation; the deflated Sharpe ratio; probability
+of backtest overfitting; and full execution simulation.
+
+The division of labour worth preserving: the language model proposes and
+explains hypotheses. The statistical and execution gates hold the veto.

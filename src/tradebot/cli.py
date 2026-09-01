@@ -176,17 +176,33 @@ def main(argv: list[str] | None = None) -> int:
         broker = AlpacaBroker(*cfg.creds("fast"))
         symbols = sorted(set(cfg.fast.universe) | set(cfg.universe))
         rets = daily_returns(broker.daily_closes(symbols, 500))
+        from .research_log import record, render
+        from .vault import strategy_hash
+        spec = {"rule": "daily cross-sectional reversal", "ks": [1, 2, 3],
+                "cost_bps_per_side": cfg.fast.cost_bps_per_side,
+                "universe": symbols, "benchmark": "SPY",
+                "acceptance": "all seven gates"}
         gates, passed = evaluate(rets, ks=[1, 2, 3],
                                  cost_bps_per_side=cfg.fast.cost_bps_per_side,
                                  benchmark="SPY",
                                  name="daily cross-sectional reversal")
+        record(cfg.research_log_path, type="evaluation",
+               strategy_hash=strategy_hash(spec), variants=3,
+               verdict="ACCEPT" if passed else "REJECT",
+               failed=[g.name for g in gates if not g.passed])
         card = report_card(
             f"daily cross-sectional reversal | {len(rets)} days | "
-            f"{len(symbols)} names", gates, passed)
+            f"{len(symbols)} names | hash {strategy_hash(spec)}",
+            gates, passed) + "\n\n" + render(cfg.research_log_path)
         out = cfg.root / "sweeps"
         out.mkdir(exist_ok=True)
         (out / f"{_dt.date.today().isoformat()}-validation.txt").write_text(card + "\n")
         print(card)
+        return 0
+
+    if cmd == "budget":
+        from .research_log import render
+        print(render(cfg.research_log_path))
         return 0
 
     if cmd == "flatten":
@@ -267,7 +283,7 @@ def main(argv: list[str] | None = None) -> int:
         return 0
 
     print("Usage: python -m tradebot "
-          "[run|run-fast|run-movers|session|verify|flatten|sweep|rotate|validate|chat|status|pnl|why SYM|decisions|report|evaluate|compare|kill|resume]")
+          "[run|run-fast|run-movers|session|verify|flatten|sweep|rotate|validate|budget|chat|status|pnl|why SYM|decisions|report|evaluate|compare|kill|resume]")
     return 0 if cmd == "help" else 1
 
 
