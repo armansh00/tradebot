@@ -149,6 +149,33 @@ class AlpacaBroker:
         resp = client.get_most_actives(MostActivesRequest(top=n))
         return [a.symbol for a in resp.most_actives][:n]
 
+    def quote_snapshot(self, symbol: str) -> dict:
+        """Best bid/ask and the midquote, right now.
+
+        Recorded beside every fill so execution cost can later be measured
+        against the prevailing midpoint (Harris, *Trading and Exchanges*,
+        ch. 14) instead of assumed. This CHANGES NO METRIC — the
+        pre-registered criterion still reads the modeled 5/15 bps. It only
+        makes the assumption checkable after the fact.
+
+        Never raises: a missing quote costs us a measurement, and a trade the
+        strategy called for must not be lost to a data hiccup.
+        """
+        try:
+            from alpaca.data.requests import StockLatestQuoteRequest
+            q = self._data.get_stock_latest_quote(
+                StockLatestQuoteRequest(symbol_or_symbols=symbol))[symbol]
+            bid, ask = float(q.bid_price), float(q.ask_price)
+            if bid <= 0 or ask <= 0 or ask < bid:
+                return {"quote": None, "quote_error": f"crossed/empty {bid}/{ask}"}
+            mid = (bid + ask) / 2
+            return {"bid": round(bid, 4), "ask": round(ask, 4),
+                    "mid": round(mid, 6),
+                    "spread_bps": round((ask - bid) / mid * 1e4, 2),
+                    "quote_ts": str(getattr(q, "timestamp", ""))}
+        except Exception as exc:
+            return {"quote": None, "quote_error": f"{type(exc).__name__}: {exc}"}
+
     def submit(self, order: dict) -> dict:
         if self.dry_run:
             return {**order, "status": "dry_run"}

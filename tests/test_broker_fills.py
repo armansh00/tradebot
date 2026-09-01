@@ -186,3 +186,33 @@ def test_two_arms_on_one_account_is_caught_not_pooled(cfg, monkeypatch):
     cli._build_brokers(cfg)
     assert cfg.fast.fills_mode == "simulated"        # refused, not pooled
     assert cfg.movers.fills_mode == "simulated"
+
+
+def test_quote_is_recorded_beside_every_fill(cfg):
+    """Recorded, not applied. The pre-registered cost stays 5 bps; the quote
+    is stored so the assumption can be measured later instead of argued."""
+    import json
+    acct = _mk({"SPY": "breakout", "QQQ": "inside"}, 10, 5)
+    acct.quote_snapshot = lambda sym: {"bid": 99.0, "ask": 99.1, "mid": 99.05,
+                                       "spread_bps": 10.1}
+    run_fast_once(cfg, acct, arm="fast")
+    orders = [json.loads(l) for l in cfg.fast_ledger_path.read_text().splitlines()
+              if json.loads(l)["type"] == "fast_order"]
+    assert orders
+    for o in orders:
+        assert o["mid"] == 99.05 and o["spread_bps"] == 10.1
+        assert o["modeled_cost"] > 0          # the metric is untouched
+
+
+def test_a_broken_quote_feed_never_blocks_a_trade(cfg):
+    acct = _mk({"SPY": "breakout", "QQQ": "inside"}, 10, 5)
+
+    def boom(sym):
+        raise RuntimeError("quote feed down")
+    acct.quote_snapshot = boom
+    with pytest.raises(RuntimeError):
+        acct.quote_snapshot("SPY")            # the fake really does raise
+    acct.quote_snapshot = lambda sym: {"quote": None, "quote_error": "feed down"}
+    result = run_fast_once(cfg, acct, arm="fast")
+    assert result["status"] == "ok"
+    assert "SPY" in acct.positions_detail()   # traded anyway

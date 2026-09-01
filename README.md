@@ -217,3 +217,30 @@ cannot recycle unsettled proceeds all day, and if settlement rules are what
 cap the fast arm's trade count, that is a finding rather than a fault. And
 `book_cap` now applies to exactly one arm — the slow one, still inside the
 original $100k account — which is what it was written for.
+
+## Amendment 2026-09-01 — record execution quotes, change no metric
+
+Every fill now stores the best bid, best ask, midquote and quoted spread in
+basis points at the instant the order was sent (`broker.quote_snapshot`).
+
+This adds a recorded quantity. It does not change a criterion. The
+pre-registered pass/fail still reads net-of-modeled-cost return at 5 bps a
+side (15 for movers), exactly as written before the first trade. Swapping in a
+measured cost after seeing results would be outcome switching, which is the
+specific failure this whole structure exists to prevent.
+
+What it buys: in October we can report the modeled cost and the measured
+effective cost side by side, and the gap between them becomes a finding
+instead of an argument. The flat 5 bps was a number chosen with no empirical
+basis, and it is load-bearing — it is what turns the fast arm's +1.8% gross
+over 30 replayed sessions into −1.1% net. An assumption doing that much work
+should be checkable.
+
+Prior expectation, stated now so it can be wrong later: a breakout rule sends
+marketable buys into rising prices, which is the textbook adverse-selection
+case (Harris, *Trading and Exchanges*, ch. 13-14). The realised cost should
+therefore exceed the quoted half-spread, and exceed it by more in the movers
+arm than the fast arm.
+
+The quote fetch is fail-open — a missing quote costs a measurement, never a
+trade.

@@ -93,6 +93,9 @@ def _fill(f, st: dict, ledger: Ledger, side: str, sym: str,
     cost = abs(qty * px * bps)
 
     if _live(f):
+        # Snapshot the market BEFORE the order goes out, so the recorded
+        # midpoint is the one the order crossed rather than the one it moved.
+        snap = broker.quote_snapshot(sym) if hasattr(broker, "quote_snapshot") else {}
         if side == "buy":
             result = broker.submit({"symbol": sym, "side": "buy",
                                     "notional": round(qty * px, 2)})
@@ -112,7 +115,8 @@ def _fill(f, st: dict, ledger: Ledger, side: str, sym: str,
                      qty=round(qty, 6), notional=round(qty * px, 2),
                      modeled_cost=round(cost, 4), reason=reason,
                      status=result.get("status"),
-                     broker_order_id=result.get("broker_order_id"))
+                     broker_order_id=result.get("broker_order_id"),
+                     **snap)
         return True
 
     # simulated engine: cost is taken inside the fill price
