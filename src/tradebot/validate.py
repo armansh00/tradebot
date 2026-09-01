@@ -202,12 +202,18 @@ def evaluate(rets: pd.DataFrame, *, ks: list[int], cost_bps_per_side: float,
 
     # --- 7. parameter stability -------------------------------------------
     by_k = {k: spread_returns(rets, k).mean() * 1e4 - round_trip * 1e4 for k in ks}
-    signs = {np.sign(v) for v in by_k.values()}
-    stable = len(signs) == 1 and all(abs(v) > 0 for v in by_k.values())
+    # Sign agreement alone is not stability: three consistently NEGATIVE values
+    # agree perfectly and mean the strategy consistently loses. The gate has to
+    # require a positive region, or "reliably bad" passes it. (Caught on the
+    # first live run of this engine, 2026-09-01 — it had returned PASS for
+    # k = -2.46, -7.35, -2.57 bp/day.)
+    stable = all(v > 0 for v in by_k.values())
     gates.append(Gate("PARAMETER STABILITY", stable, [
         *[f"k = {k}                  {v:+8.2f} bp/day net" for k, v in by_k.items()],
-        "a region of agreement is evidence of a phenomenon; a single value",
-        "that works while its neighbours do not is an optimised parameter",
+        "a positive region of agreement is evidence of a phenomenon; a single",
+        "value that works while its neighbours do not is an optimised",
+        "parameter; and unanimous agreement on a negative number is not",
+        "stability, it is a consistent loss",
     ]))
 
     return gates, all(g.passed for g in gates)

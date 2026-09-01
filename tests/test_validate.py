@@ -83,3 +83,14 @@ def test_verdict_requires_every_gate(cfg):
     gates = [Gate("A", True), Gate("B", True), Gate("C", False)]
     assert "REJECT" in report_card("x", gates, all(g.passed for g in gates))
     assert "ACCEPT" in report_card("x", gates[:2], True)
+
+
+def test_stability_gate_rejects_unanimous_agreement_on_losing(cfg):
+    """The bug this engine found in itself on its first real run: three k
+    values agreeing that the strategy loses money is not 'stable'."""
+    frame = reversal_frame(phi=-0.05, seed=9)      # effect far smaller than cost
+    gates, passed = evaluate(frame, ks=[1, 2, 3], cost_bps_per_side=25,
+                             null_draws=200)
+    stability = {g.name: g for g in gates}["PARAMETER STABILITY"]
+    assert not stability.passed
+    assert not passed
