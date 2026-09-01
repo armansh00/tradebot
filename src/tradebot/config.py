@@ -84,6 +84,8 @@ class Config:
     fast_evaluation: FastEvalCfg
     movers_evaluation: MoversEvalCfg
     accounts: dict = field(default_factory=lambda: dict(DEFAULT_ACCOUNTS))
+    regimes: dict = field(default_factory=dict)
+    minimum_observations: dict = field(default_factory=lambda: {"per_regime": 100})
     vault_dates: dict = field(default_factory=lambda: {
         "research_end": "2026-01-31", "vault_start": "2026-02-01"})
     sweep: dict = field(default_factory=lambda: {
@@ -150,6 +152,9 @@ def load_config(root: str | os.PathLike | None = None) -> Config:
         fast_evaluation=FastEvalCfg(**raw["fast_evaluation"]),
         movers_evaluation=MoversEvalCfg(**raw["movers_evaluation"]),
         accounts={**DEFAULT_ACCOUNTS, **raw.get("accounts", {})},
+        regimes=raw.get("regimes") or {},
+        minimum_observations=raw.get("minimum_observations")
+        or {"per_regime": 100},
         vault_dates=raw.get("vault") or {"research_end": "2026-01-31",
                                          "vault_start": "2026-02-01"},
         sweep=raw.get("sweep") or {"thresholds_pct": [0.0, 0.25, 0.5, 1.0,

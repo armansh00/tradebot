@@ -100,3 +100,24 @@ sweep:
 vault:
   research_end: "2026-01-31"
   vault_start: "2026-02-01"
+
+# Regime definitions are declared BEFORE testing, with thresholds fixed, so
+# "high volatility" cannot quietly migrate from one cutoff to whichever one
+# produces a result. The interaction test compares signal against no-signal
+# WITHIN a regime — otherwise a strategy looks good in bull markets simply
+# because everything does.
+regimes:
+  volatility:
+    definition: "trailing 20-day realised volatility of the equal-weight universe"
+    threshold_pct: 20.0
+    declared: "2026-09-01"
+  market_direction:
+    definition: "SPY above or below its own 200-day simple moving average"
+    threshold: 0.0
+    declared: "2026-09-01"
+minimum_observations:
+  per_regime: 100
+interaction_test:
+  specified: true
+  form: "E[R|signal,regime] - E[R|no signal,regime]"
+declared_before_test: true

@@ -252,6 +252,16 @@ execution systems retain veto authority.**
 
 No model output is evidence until an independent test produces it.
 
+**Every piece of information consumed by the research process must leave a
+trace.** Not only executed backtests: model suggestions, parameter searches,
+regime definitions, vault access, strategy descendants, null simulations,
+rejected variants and manual interventions. Once that holds, the research
+history becomes data in its own right, and the question worth asking stops
+being "did it once find a t-stat of 2.4" and becomes: *after hundreds of
+pre-registered attempts, do the strategies this process promotes survive
+unseen data at a rate better than the null process?* That is the thing being
+evaluated here. A single strategy is a sample of size one.
+
 Everything else in this repository is machinery for enforcing those two
 sentences when it would be more comfortable not to. Concretely: REJECT is the
 default verdict and all seven gates must pass; the holdout is bound to a hash
