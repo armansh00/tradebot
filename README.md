@@ -176,7 +176,11 @@ So the cadence moved out of cron and into the process:
   already did, and every intraday order carries a deterministic
   `client_order_id` that the broker itself refuses to fill twice.
 - Every tick is committed as it happens, so a killed job cannot take the day's
-  record with it.
+  record with it. The deadline handoff goes further: it writes the event,
+  fsyncs it, and does not return until the commit hook acknowledges that the
+  record left the runner. If it cannot, the session exits `handoff_unconfirmed`
+  and the job goes red — because a handoff nobody can see is the gap that
+  ate 5h45m on 2026-09-01.
 - Before the first tick, every arm has to fetch its own data through its own
   account — `python -m tradebot preflight` runs the same probes on demand. An
   arm that cannot read what it trades on is disabled for the day

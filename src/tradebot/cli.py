@@ -290,7 +290,12 @@ def main(argv: list[str] | None = None) -> int:
         result = run_session(cfg, brokers, on_tick_done=hook, peek=peek)
         print(f"session: {result['status']} "
               f"(ran {result['ran']}, missed {result['missed']})")
-        return 0
+        if result.get("disabled"):
+            print(f"        arms disabled by preflight: {result['disabled']}")
+        # Red on the Actions page for the two states a human has to look at:
+        # a day nobody was allowed to trade, and a handoff the successor may
+        # never see. Everything else is a normal day.
+        return 1 if result["status"] in ("preflight_fail", "handoff_unconfirmed") else 0
 
     if cmd == "compare":
         from .compare import compare_report

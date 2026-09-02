@@ -2,6 +2,7 @@
 The chat interface answers only from what is written here — it cannot invent."""
 from __future__ import annotations
 import json
+import os
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -15,9 +16,19 @@ class Ledger:
         self.path = path
 
     def write(self, event_type: str, **fields) -> dict:
+        """Append one event and make it real before returning.
+
+        The flush and fsync are not ceremony. On 2026-09-01 a session hit its
+        deadline, wrote its handoff record, and the runner was destroyed; the
+        record never reached the repository and the day showed a 5h45m hole
+        that nothing admitted to. "Written" has to mean written to disk, so
+        that the only remaining question is whether it was pushed.
+        """
         record = {"ts": _now(), "type": event_type, **fields}
         with open(self.path, "a") as f:
             f.write(json.dumps(record) + "\n")
+            f.flush()
+            os.fsync(f.fileno())
         return record
 
     def read(self) -> list[dict]:

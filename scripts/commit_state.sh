@@ -21,5 +21,9 @@ for attempt in 1 2 3; do
   git pull --rebase -q && git push -q && exit 0
   sleep $((attempt * 5))
 done
-echo "push failed after 3 attempts; will retry on the next tick" >&2
-exit 0
+
+# Non-zero, deliberately. Mid-day the caller ignores this and retries on the
+# next tick. At a deadline handoff there IS no next tick, so the caller has to
+# know the record did not leave this runner.
+echo "push failed after 3 attempts" >&2
+exit 1

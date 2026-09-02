@@ -148,6 +148,29 @@ def _run_tick(cfg: Config, brokers, kind: str, disabled=frozenset()) -> dict:
     return out
 
 
+def _persist(on_tick_done, sleep, attempts: int = 3) -> bool:
+    """Push the record out of this runner and confirm it left.
+
+    Returns True when there is nothing to persist (no hook — tests, a local
+    run) or the hook acknowledged. A hook that returns None acknowledges by
+    silence, which is how the plain callables in the tests behave; a
+    `CompletedProcess` acknowledges with returncode 0.
+    """
+    if on_tick_done is None:
+        return True
+    for attempt in range(1, attempts + 1):
+        try:
+            result = on_tick_done()
+        except Exception:                             # noqa: BLE001
+            result = False
+        code = getattr(result, "returncode", None)
+        if code == 0 or (code is None and result is not False):
+            return True
+        if attempt < attempts:
+            sleep(5 * attempt)
+    return False
+
+
 def run_session(
     cfg: Config,
     broker,
@@ -217,11 +240,29 @@ def run_session(
             continue
 
         if tick.at > deadline:
+            # The one exit with no next tick behind it. Everywhere else a
+            # failed push is retried in thirty minutes; here the process is
+            # about to be destroyed, so the record has to be out of this
+            # runner BEFORE the return. On 2026-09-01 it was not: the handoff
+            # was written to a local file and the runner took it with it,
+            # leaving 5h45m that nothing in the ledger admitted to.
             remaining = [x for x in schedule if x.at > deadline]
             ledger.write("session", status="handoff", at=t.isoformat(),
-                         deadline=deadline.isoformat(), ticks_deferred=len(remaining))
-            return {"status": "handoff", "ran": ran, "missed": missed,
-                    "resumed": resumed, "disabled": sorted(disabled)}
+                         deadline=deadline.isoformat(),
+                         ticks_deferred=len(remaining),
+                         deferred=[x.at.isoformat() for x in remaining],
+                         ran=ran, missed=missed, resumed=resumed)
+            persisted = _persist(on_tick_done, sleep)
+            if not persisted:
+                ledger.write("session", status="handoff_unconfirmed",
+                             at=now().isoformat(),
+                             detail="handoff written locally but not acknowledged "
+                                    "by the commit hook; the successor may not "
+                                    "see it")
+            status = "handoff" if persisted else "handoff_unconfirmed"
+            return {"status": status, "ran": ran, "missed": missed,
+                    "resumed": resumed, "disabled": sorted(disabled),
+                    "persisted": persisted}
 
         wait = (tick.at - t).total_seconds()
         if wait > 0:
@@ -250,7 +291,15 @@ def run_session(
                          traceback=traceback.format_exc()[-800:])
 
         if on_tick_done:
-            on_tick_done()
+            # Mid-day this is best-effort on purpose: a failed commit is
+            # retried by the next tick, and a git problem must never end a
+            # trading day. The deadline handoff is the one place that cannot
+            # take that view, and it uses _persist instead.
+            try:
+                on_tick_done()
+            except Exception as exc:                  # noqa: BLE001
+                ledger.write("persist_error", scheduled=tick.at.isoformat(),
+                             error=f"{type(exc).__name__}: {exc}"[:200])
 
     ledger.write("session", status="complete", ran=ran, missed=missed,
                  already_done=resumed, disabled=sorted(disabled),
