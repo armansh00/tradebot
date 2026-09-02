@@ -168,6 +168,13 @@ So the cadence moved out of cron and into the process:
 - Three chained legs, because a hosted job is capped at six hours. Each leg
   hands off at 5h40m and the next resumes from the ledger; legs that find the
   session already over exit in seconds.
+- Seven staggered starts, all allowed to run. There is no `concurrency` group:
+  GitHub cancels a superseded run rather than queueing it, which on 2026-09-01
+  killed five of the seven and left the day resting on the one that stalled.
+  Duplicate work is prevented inside the process instead — each run re-reads
+  the shared ledger immediately before every tick and skips what another run
+  already did, and every intraday order carries a deterministic
+  `client_order_id` that the broker itself refuses to fill twice.
 - Every tick is committed as it happens, so a killed job cannot take the day's
   record with it.
 - Before the first tick, every arm has to fetch its own data through its own

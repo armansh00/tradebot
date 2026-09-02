@@ -9,15 +9,28 @@ name: trading-session
 # if the session is already over. Steps are duplicated rather than shared:
 # GitHub Actions does not support YAML anchors.
 
-# Five independent start attempts, not one. GitHub drops individual scheduled
-# events under load rather than disabling the workflow, so five chances beat
+# Seven independent start attempts, not one. GitHub drops individual scheduled
+# events under load rather than disabling the workflow, so seven chances beat
 # one. Minutes are deliberately off the hour — top-of-hour is the documented
 # congestion peak. Measured delays on this repo so far: Sunday's review cron
 # 3h50m late, Monday's daily cron 5h57m late, and three intraday events never
-# delivered at all — so the early starts are not paranoia. Duplicates are free: `concurrency` keeps at most one run,
-# _completed_ticks() skips work already done, and a start after the close
-# exits in seconds. The spread also absorbs DST, when the open moves from
-# 13:30 to 14:30 UTC.
+# delivered at all — so the early starts are not paranoia. The spread also
+# absorbs DST, when the open moves from 13:30 to 14:30 UTC.
+#
+# THERE IS DELIBERATELY NO `concurrency:` BLOCK HERE. There used to be, on the
+# theory that it made duplicates harmless. It does not queue duplicates — a
+# newly triggered run supersedes the one already waiting, and GitHub cancels
+# it. On 2026-09-01 runs 4 through 8 were all cancelled that way; the seven
+# launch chances collapsed into one, that one lost five and three-quarter
+# hours, and so did the trading day. Redundancy that a scheduler is allowed to
+# cancel is not redundancy.
+#
+# Duplicate WORK is prevented where it can be done correctly instead: each
+# process re-reads the shared ledger immediately before every tick and skips
+# what another process already did, and every intraday order carries a
+# deterministic client_order_id that Alpaca itself refuses to fill twice. So
+# the spare runs stay alive, cost nothing on a normal day, and take over the
+# next tick on a day the leader dies.
 on:
   schedule:
     - cron: "11 3 * * 1-5"     # earliest: survives a ~10h delivery delay
@@ -31,10 +44,6 @@ on:
 
 permissions:
   contents: write
-
-concurrency:
-  group: tradebot-session
-  cancel-in-progress: false
 
 jobs:
   leg1:

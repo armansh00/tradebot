@@ -75,24 +75,48 @@ def build_schedule(open_utc: datetime, close_utc: datetime, cfg: Config) -> list
     return sorted(ticks, key=lambda x: (x.at, x.kind))
 
 
-def _completed_ticks(cfg: Config) -> set[str]:
-    """Which scheduled ticks already ran today, by scheduled timestamp.
+def _ticks_in(lines) -> set[str]:
+    """Scheduled timestamps of ticks that already have a verdict recorded.
 
-    Leg 2 resumes what leg 1 handed off, so it has to tell "already done" from
-    "missed". Without this the handoff itself would manufacture a missing-data
-    story about a day that went fine.
+    An errored tick counts as done: it was attempted at its scheduled moment,
+    and a second process re-running it minutes later would be executing the
+    arm off-cadence — a different experiment wearing the same name.
     """
-    path = cfg.ledger_path
-    if not path.exists():
-        return set()
     done = set()
-    for line in path.read_text().splitlines():
+    for line in lines:
         try:
             event = json.loads(line)
         except json.JSONDecodeError:
             continue                                  # fail closed, not loud
-        if event.get("type") == "tick" and event.get("scheduled"):
+        if event.get("type") in ("tick", "tick_error") and event.get("scheduled"):
             done.add(event["scheduled"])
+    return done
+
+
+def _completed_ticks(cfg: Config, peek=None) -> set[str]:
+    """Which scheduled ticks already ran today, by scheduled timestamp.
+
+    Two readers. The local ledger answers for this process — leg 2 resuming
+    what leg 1 handed off has to tell "already done" from "missed", or the
+    handoff itself manufactures a missing-data story about a day that went
+    fine. `peek` answers for every OTHER process alive today.
+
+    The second reader is what lets the redundant starts be genuinely
+    redundant. Before 2026-09-02 duplicate work was prevented by a GitHub
+    `concurrency` group, which does not prevent duplicate work — it cancels
+    the queued run outright. On 2026-09-01 that turned seven independent
+    launch chances into one, and when that one lost five hours, so did the
+    day. Concurrency control belongs here, where it can let the spares run
+    and still keep each tick to a single execution.
+    """
+    done = set()
+    if cfg.ledger_path.exists():
+        done |= _ticks_in(cfg.ledger_path.read_text().splitlines())
+    if peek:
+        try:
+            done |= _ticks_in(peek() or [])
+        except Exception:                             # noqa: BLE001
+            pass                                      # a blind spare beats none
     return done
 
 
@@ -133,6 +157,7 @@ def run_session(
     deadline_minutes: float | None = None,
     on_tick_done=None,
     preflight=run_preflight,
+    peek=None,
 ) -> dict:
     now = now or (lambda: datetime.now(timezone.utc))
     sleep = sleep or time.sleep
@@ -173,7 +198,7 @@ def run_session(
         return {"status": "preflight_fail", "ran": 0, "missed": 0, "resumed": 0,
                 "disabled": sorted(disabled)}
 
-    done = _completed_ticks(cfg)
+    done = _completed_ticks(cfg, peek)
     ran = missed = resumed = 0
     for tick in schedule:
         t = now()
@@ -201,6 +226,17 @@ def run_session(
         wait = (tick.at - t).total_seconds()
         if wait > 0:
             sleep(wait)
+
+        # Re-check at the moment of execution, not only at start-up. Several
+        # processes legitimately share a trading day; the one that gets here
+        # first does the work and the rest record it as already done. Any
+        # residual race is caught downstream by broker-enforced idempotency:
+        # every intraday order carries a deterministic client_order_id and the
+        # slow arm refuses a second run on the same date.
+        done |= _completed_ticks(cfg, peek)
+        if tick.at.isoformat() in done:
+            resumed += 1
+            continue
 
         try:
             result = _run_tick(cfg, broker, tick.kind, disabled)

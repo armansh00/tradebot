@@ -274,11 +274,20 @@ def main(argv: list[str] | None = None) -> int:
         import subprocess
         from .session import run_session
         brokers = _build_brokers(cfg, Ledger(cfg.ledger_path))
-        hook = None
+        hook = peek = None
         if os.environ.get("TRADEBOT_AUTOCOMMIT") == "1":
             script = cfg.root / "scripts" / "commit_state.sh"
             hook = lambda: subprocess.run(["bash", str(script)], cwd=cfg.root)
-        result = run_session(cfg, brokers, on_tick_done=hook)
+            # Several starts share a trading day on purpose. Before each tick,
+            # look at what the others have already committed rather than
+            # letting GitHub cancel the spares.
+            peeker = cfg.root / "scripts" / "peek_ledger.sh"
+
+            def peek():
+                out = subprocess.run(["bash", str(peeker)], cwd=cfg.root,
+                                     capture_output=True, text=True, timeout=60)
+                return out.stdout.splitlines()
+        result = run_session(cfg, brokers, on_tick_done=hook, peek=peek)
         print(f"session: {result['status']} "
               f"(ran {result['ran']}, missed {result['missed']})")
         return 0
