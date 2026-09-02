@@ -252,6 +252,19 @@ def main(argv: list[str] | None = None) -> int:
                 print(f"        account regime unavailable: {exc}")
         return 0
 
+    if cmd == "preflight":
+        # Same probes the session runs, on demand — so an entitlement problem
+        # can be found and fixed at 9pm rather than discovered at 9:35am.
+        try:
+            from dotenv import load_dotenv
+            load_dotenv(cfg.root / ".env")
+        except ImportError:
+            pass
+        from .preflight import run_preflight
+        report = run_preflight(cfg, _build_brokers(cfg), ledger=Ledger(cfg.ledger_path))
+        print(report.summary())
+        return 0 if report.ok else 1
+
     if cmd == "session":
         try:
             from dotenv import load_dotenv
@@ -298,7 +311,7 @@ def main(argv: list[str] | None = None) -> int:
         return 0
 
     print("Usage: python -m tradebot "
-          "[run|run-fast|run-movers|session|verify|flatten|sweep|rotate|validate|budget|chat|status|pnl|why SYM|decisions|report|evaluate|compare|kill|resume]")
+          "[run|run-fast|run-movers|session|preflight|verify|flatten|sweep|rotate|validate|budget|chat|status|pnl|why SYM|decisions|report|evaluate|compare|kill|resume]")
     return 0 if cmd == "help" else 1
 
 

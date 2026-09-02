@@ -12,21 +12,44 @@ CLOSE = datetime(2026, 9, 1, 20, 0, tzinfo=timezone.utc)   # 16:00 ET
 
 
 class SessionFake:
-    """Only what run_session touches."""
-    def __init__(self, window=(OPEN, CLOSE), fail_on=()):
+    """Only what run_session touches — including the preflight probes, which
+    every session now has to clear before a single tick runs."""
+    def __init__(self, window=(OPEN, CLOSE), fail_on=(), data_denied=()):
         self.window = window
         self.fail_on = set(fail_on)
+        self.data_denied = set(data_denied)
         self.calls = []
 
     def session_today(self):
         return self.window
+
+    def _guard(self, probe):
+        if probe in self.data_denied:
+            raise RuntimeError(
+                "subscription does not permit querying recent SIP data")
+
+    def daily_closes(self, symbols, days):
+        self._guard("daily_closes")
+        return {s: [1.0, 2.0] for s in symbols}
+
+    def most_actives(self, n):
+        self._guard("most_actives")
+        return ["AAPL", "NVDA"][:n]
+
+    def intraday_5min(self, symbols, day=None):
+        self._guard("intraday_5min")
+        return {s: [1.0] for s in symbols}
+
+    def quote_snapshot(self, symbol):
+        self._guard("quote_snapshot")
+        return {"bid": 1.0, "ask": 1.01, "mid": 1.005}
 
 
 @pytest.fixture
 def patched(monkeypatch):
     calls = []
 
-    def fake_tick(cfg, brokers, kind):
+    def fake_tick(cfg, brokers, kind, disabled=frozenset()):
         calls.append(kind)
         one = brokers[kind] if isinstance(brokers, dict) else brokers
         if kind in getattr(one, "fail_on", ()):

@@ -23,6 +23,7 @@ from zoneinfo import ZoneInfo
 
 from .config import Config
 from .ledger import Ledger
+from .preflight import run_preflight
 
 SLOW = "slow"
 FAST = "fast"
@@ -103,16 +104,24 @@ def as_brokers(broker) -> dict:
     return {SLOW: broker, "fast": broker, "movers": broker}
 
 
-def _run_tick(cfg: Config, brokers, kind: str) -> dict:
+def _run_tick(cfg: Config, brokers, kind: str, disabled=frozenset()) -> dict:
+    """Run the arms that belong to this tick and that preflight cleared.
+
+    A disabled arm still produces a record. Silence would be indistinguishable
+    from a tick that never happened, which is the ambiguity this whole module
+    exists to remove."""
     brokers = as_brokers(brokers)
     if kind == SLOW:
+        if SLOW in disabled:
+            return {"slow": {"status": "arm_disabled"}}
         from .run import run_once
         return {"slow": run_once(cfg, brokers[SLOW])}
     from .fastarm import run_fast_once
-    return {
-        "fast": run_fast_once(cfg, brokers["fast"], arm="fast"),
-        "movers": run_fast_once(cfg, brokers["movers"], arm="movers"),
-    }
+    out = {}
+    for arm in ("fast", "movers"):
+        out[arm] = ({"status": "arm_disabled"} if arm in disabled
+                    else run_fast_once(cfg, brokers[arm], arm=arm))
+    return out
 
 
 def run_session(
@@ -123,6 +132,7 @@ def run_session(
     sleep=None,
     deadline_minutes: float | None = None,
     on_tick_done=None,
+    preflight=run_preflight,
 ) -> dict:
     now = now or (lambda: datetime.now(timezone.utc))
     sleep = sleep or time.sleep
@@ -152,6 +162,17 @@ def run_session(
         late_minutes=round(max(0.0, (started - open_utc).total_seconds() / 60), 1),
     )
 
+    # Commission the accounts before the bell. An arm that cannot read its own
+    # data does not trade today; it is not quietly switched to another feed.
+    brokers = as_brokers(broker)
+    report = preflight(cfg, brokers, ledger=ledger)
+    disabled = set(getattr(report, "disabled", ()) or ())
+    if not getattr(report, "any_enabled", True):
+        ledger.write("session", status="preflight_fail",
+                     disabled=sorted(disabled), ended=now().isoformat())
+        return {"status": "preflight_fail", "ran": 0, "missed": 0, "resumed": 0,
+                "disabled": sorted(disabled)}
+
     done = _completed_ticks(cfg)
     ran = missed = resumed = 0
     for tick in schedule:
@@ -175,14 +196,14 @@ def run_session(
             ledger.write("session", status="handoff", at=t.isoformat(),
                          deadline=deadline.isoformat(), ticks_deferred=len(remaining))
             return {"status": "handoff", "ran": ran, "missed": missed,
-                    "resumed": resumed}
+                    "resumed": resumed, "disabled": sorted(disabled)}
 
         wait = (tick.at - t).total_seconds()
         if wait > 0:
             sleep(wait)
 
         try:
-            result = _run_tick(cfg, broker, tick.kind)
+            result = _run_tick(cfg, broker, tick.kind, disabled)
             ran += 1
             ledger.write("tick", kind=tick.kind, scheduled=tick.at.isoformat(),
                          status={k: v.get("status") for k, v in result.items()})
@@ -196,5 +217,7 @@ def run_session(
             on_tick_done()
 
     ledger.write("session", status="complete", ran=ran, missed=missed,
-                 already_done=resumed, ended=now().isoformat())
-    return {"status": "complete", "ran": ran, "missed": missed, "resumed": resumed}
+                 already_done=resumed, disabled=sorted(disabled),
+                 ended=now().isoformat())
+    return {"status": "complete", "ran": ran, "missed": missed,
+            "resumed": resumed, "disabled": sorted(disabled)}

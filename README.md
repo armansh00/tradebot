@@ -170,6 +170,13 @@ So the cadence moved out of cron and into the process:
   session already over exit in seconds.
 - Every tick is committed as it happens, so a killed job cannot take the day's
   record with it.
+- Before the first tick, every arm has to fetch its own data through its own
+  account — `python -m tradebot preflight` runs the same probes on demand. An
+  arm that cannot read what it trades on is disabled for the day
+  (`DATA_PREFLIGHT_FAIL`) and the others carry on. There is deliberately no
+  feed fallback: SIP and IEX are different information sets, and an arm that
+  quietly switched feeds would be running against a pre-registration it no
+  longer satisfies.
 - Missed ticks are ledger events (`tick_missed`, `tick_error`, `session
   handoff`), never silence. The count of executed vs. planned ticks is part of
   the evaluation record, and a day that lost its morning is disclosed rather
