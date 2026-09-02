@@ -74,3 +74,4 @@
 {"ts": "2026-09-02T17:15:46+00:00", "type": "tick_missed", "scheduled": "2026-09-02T15:05:00+00:00", "kind": "fast", "late_minutes": 130.8, "reason": "process_started_after_tick"}
 {"ts": "2026-09-02T17:35:00+00:00", "type": "tick", "kind": "fast", "scheduled": "2026-09-02T17:35:00+00:00", "status": {"fast": "arm_disabled", "movers": "arm_disabled"}}
 {"ts": "2026-09-02T18:05:00+00:00", "type": "tick", "kind": "fast", "scheduled": "2026-09-02T18:05:00+00:00", "status": {"fast": "arm_disabled", "movers": "arm_disabled"}}
+{"ts": "2026-09-02T18:35:00+00:00", "type": "tick", "kind": "fast", "scheduled": "2026-09-02T18:35:00+00:00", "status": {"fast": "arm_disabled", "movers": "arm_disabled"}}
