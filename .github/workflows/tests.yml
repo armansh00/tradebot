@@ -6,7 +6,8 @@ name: tests
 on:
   push:
     branches: [main]
-    paths: ["src/**", "tests/**", "config.yaml", "requirements.txt"]
+    paths: ["src/**", "tests/**", "config.yaml", "requirements.txt",
+            ".github/workflows/**"]
   pull_request:
   workflow_dispatch: {}
 

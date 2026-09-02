@@ -1,0 +1,40 @@
+name: data-preflight
+
+# Ask each account, hours before the bell, whether it can actually read the
+# data its arm trades on. On 2026-09-01 two arms could not, and nobody found
+# out until the trades that never happened were noticed the next morning.
+#
+# This places no orders and touches no state beyond the ledger. It exists so
+# an entitlement problem is a thing to fix over coffee rather than a lost
+# session.
+
+on:
+  schedule:
+    - cron: "13 11 * * 1-5"     # ~2h20m before a normal open
+  workflow_dispatch: {}
+
+permissions:
+  contents: write
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install -r requirements.txt
+      - name: Probe every account through its own credentials
+        env:
+          ALPACA_API_KEY: ${{ secrets.ALPACA_API_KEY }}
+          ALPACA_SECRET_KEY: ${{ secrets.ALPACA_SECRET_KEY }}
+          ALPACA_FAST_KEY: ${{ secrets.ALPACA_FAST_KEY }}
+          ALPACA_FAST_SECRET: ${{ secrets.ALPACA_FAST_SECRET }}
+          ALPACA_MOVERS_KEY: ${{ secrets.ALPACA_MOVERS_KEY }}
+          ALPACA_MOVERS_SECRET: ${{ secrets.ALPACA_MOVERS_SECRET }}
+        run: PYTHONPATH=src python -m tradebot preflight
+      - name: Record the result
+        if: always()
+        run: bash scripts/commit_state.sh
