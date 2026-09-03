@@ -113,3 +113,4 @@
 {"ts": "2026-09-03T17:05:00+00:00", "type": "tick", "kind": "fast", "scheduled": "2026-09-03T17:05:00+00:00", "status": {"fast": "arm_disabled", "movers": "arm_disabled"}}
 {"ts": "2026-09-03T17:35:00+00:00", "type": "tick", "kind": "fast", "scheduled": "2026-09-03T17:35:00+00:00", "status": {"fast": "arm_disabled", "movers": "arm_disabled"}}
 {"ts": "2026-09-03T18:05:00+00:00", "type": "tick", "kind": "fast", "scheduled": "2026-09-03T18:05:00+00:00", "status": {"fast": "arm_disabled", "movers": "arm_disabled"}}
+{"ts": "2026-09-03T18:35:00+00:00", "type": "tick", "kind": "fast", "scheduled": "2026-09-03T18:35:00+00:00", "status": {"fast": "arm_disabled", "movers": "arm_disabled"}}
