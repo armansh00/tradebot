@@ -91,3 +91,10 @@
 {"ts": "2026-09-03T13:32:01+00:00", "type": "tick", "kind": "slow", "scheduled": "2026-09-03T13:32:00+00:00", "status": {"slow": "ok"}}
 {"ts": "2026-09-03T14:05:00+00:00", "type": "tick", "kind": "fast", "scheduled": "2026-09-03T14:05:00+00:00", "status": {"fast": "arm_disabled", "movers": "arm_disabled"}}
 {"ts": "2026-09-03T14:35:00+00:00", "type": "tick", "kind": "fast", "scheduled": "2026-09-03T14:35:00+00:00", "status": {"fast": "arm_disabled", "movers": "arm_disabled"}}
+{"ts": "2026-09-03T14:58:39+00:00", "type": "preflight", "arm": "slow", "probe": "daily_closes", "ok": true, "severity": "blocking", "detail": "2 rows"}
+{"ts": "2026-09-03T14:58:39+00:00", "type": "preflight", "arm": "fast", "probe": "intraday_5min", "ok": false, "severity": "blocking", "detail": "APIError: {\"message\":\"subscription does not permit querying recent SIP data\"}\n"}
+{"ts": "2026-09-03T14:58:39+00:00", "type": "preflight", "arm": "fast", "probe": "quote_snapshot", "ok": true, "severity": "advisory", "detail": "mid 769.015"}
+{"ts": "2026-09-03T14:58:39+00:00", "type": "preflight", "arm": "movers", "probe": "most_actives", "ok": true, "severity": "blocking", "detail": "10 symbols"}
+{"ts": "2026-09-03T14:58:39+00:00", "type": "preflight", "arm": "movers", "probe": "intraday_5min", "ok": false, "severity": "blocking", "detail": "APIError: {\"message\":\"subscription does not permit querying recent SIP data\"}\n"}
+{"ts": "2026-09-03T14:58:39+00:00", "type": "preflight", "arm": "movers", "probe": "quote_snapshot", "ok": true, "severity": "advisory", "detail": "mid 0.11275"}
+{"ts": "2026-09-03T14:58:39+00:00", "type": "preflight", "status": "DATA_PREFLIGHT_FAIL", "disabled": ["fast", "movers"], "reason": ["APIError: {\"message\":\"subscription does not permit querying recent SIP data\"}\n", "APIError: {\"message\":\"subscription does not permit querying recent SIP data\"}\n"]}
