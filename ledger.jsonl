@@ -108,3 +108,4 @@
 {"ts": "2026-09-03T15:10:22+00:00", "type": "preflight", "status": "DATA_PREFLIGHT_FAIL", "disabled": ["fast", "movers"], "reason": ["APIError: {\"message\":\"subscription does not permit querying recent SIP data\"}\n", "APIError: {\"message\":\"subscription does not permit querying recent SIP data\"}\n"]}
 {"ts": "2026-09-03T15:10:22+00:00", "type": "tick_missed", "scheduled": "2026-09-03T15:05:00+00:00", "kind": "fast", "late_minutes": 5.4, "reason": "process_started_after_tick"}
 {"ts": "2026-09-03T15:35:00+00:00", "type": "tick", "kind": "fast", "scheduled": "2026-09-03T15:35:00+00:00", "status": {"fast": "arm_disabled", "movers": "arm_disabled"}}
+{"ts": "2026-09-03T16:05:00+00:00", "type": "tick", "kind": "fast", "scheduled": "2026-09-03T16:05:00+00:00", "status": {"fast": "arm_disabled", "movers": "arm_disabled"}}
