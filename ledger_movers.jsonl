@@ -33,3 +33,5 @@
 {"ts": "2026-09-04T19:35:01+00:00", "type": "fast_close", "symbol": "SNXX", "qty": 1.539399, "entry_px": 16.2645, "exit_px": 17.0194, "pnl": 1.1622, "reason": "eod_flat", "px_source": "bar"}
 {"ts": "2026-09-04T19:35:01+00:00", "type": "fast_order", "side": "sell", "symbol": "SNXX", "px": 17.0194, "qty": 1.539399, "notional": 26.24, "modeled_cost": 0.0394, "reason": "eod_flat", "px_source": "bar"}
 {"ts": "2026-09-04T19:35:01+00:00", "type": "fast_run", "arm": "movers", "equity": 51.1622, "day": "2026-09-04", "session_source": "exchange_calendar", "session_close": "2026-09-04T16:00:00-04:00", "cost_accrued": 0.0769, "day_pnl_pct": 2.324, "positions": {}, "cash": 51.16}
+{"ts": "2026-09-04T19:58:01+00:00", "type": "universe", "arm": "movers", "day": "2026-09-04", "symbols": ["GPRO", "DVLT", "TSLL", "BAOS", "IMRN", "NVDA", "PATH", "OFAL", "NVD", "SNXX"]}
+{"ts": "2026-09-04T19:58:01+00:00", "type": "fast_run", "arm": "movers", "equity": 51.1622, "day": "2026-09-04", "session_source": "exchange_calendar", "session_close": "2026-09-04T16:00:00-04:00", "cost_accrued": 0.0769, "day_pnl_pct": 2.324, "positions": {}, "cash": 51.16}
