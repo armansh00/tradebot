@@ -10,7 +10,18 @@ accounts:
   # a day trader.
   slow:   {key_env: ALPACA_API_KEY,    secret_env: ALPACA_SECRET_KEY}
   fast:   {key_env: ALPACA_FAST_KEY,   secret_env: ALPACA_FAST_SECRET}
-  movers: {key_env: ALPACA_MOVERS_KEY, secret_env: ALPACA_MOVERS_SECRET}
+  # Where the movers universe comes from. Recorded because it cannot be
+# controlled: the screener endpoint takes no `feed` argument, so even with the
+# SIP entitlement in place the universe-selection step has no pinnable source.
+# The arm's decisions run on bars and quotes that do carry the declared feed;
+# the set of symbols those decisions range over does not. Written down so the
+# movers arm never claims full SIP provenance it cannot support.
+universe_source:
+  provider: alpaca
+  endpoint: most_actives
+  feed_control: unavailable
+
+movers: {key_env: ALPACA_MOVERS_KEY, secret_env: ALPACA_MOVERS_SECRET}
 
 # tradebot configuration — every number here is pre-registered.
 # Changing strategy or risk parameters mid-test invalidates the paper test:

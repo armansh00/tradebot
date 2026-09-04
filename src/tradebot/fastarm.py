@@ -96,7 +96,8 @@ def _mark_equity(f, broker, st: dict, lasts: dict[str, float]) -> float:
 
 def _fill(f, st: dict, ledger: Ledger, side: str, sym: str,
           px: float, qty: float, reason: str, broker=None,
-          arm: str = "fast", day: str = "", tick: str = "") -> bool:
+          arm: str = "fast", day: str = "", tick: str = "",
+          px_source: str = "bar") -> bool:
     """Execute one side. Returns False if the venue refused the order.
 
     A rejection is a result, not an error: a $50 cash account genuinely
@@ -137,7 +138,7 @@ def _fill(f, st: dict, ledger: Ledger, side: str, sym: str,
                      symbol=sym, px=round(px, 4), qty=round(qty, 6),
                      notional=round(qty * px, 2),
                      modeled_cost=round(cost, 4), reason=reason,
-                     status=result.get("status"),
+                     px_source=px_source, status=result.get("status"),
                      broker_order_id=result.get("broker_order_id"),
                      decision_ts=decision_ts,
                      submitted_at=result.get("submitted_at"),
@@ -162,11 +163,12 @@ def _fill(f, st: dict, ledger: Ledger, side: str, sym: str,
             ledger.write("fast_close", symbol=sym, qty=round(qty, 6),
                          entry_px=round(pos["entry_px"], 4),
                          exit_px=round(fill_px, 4), pnl=round(pnl, 4),
-                         reason=reason)
+                         reason=reason, px_source=px_source)
     st["cost_accrued"] = round(st.get("cost_accrued", 0.0) + cost, 6)
     ledger.write("fast_order", side=side, symbol=sym, px=round(fill_px, 4),
                  qty=round(qty, 6), notional=round(gross, 2),
-                 modeled_cost=round(cost, 4), reason=reason)
+                 modeled_cost=round(cost, 4), reason=reason,
+                 px_source=px_source)
     return True
 
 
@@ -212,14 +214,46 @@ def session_bounds(broker, now: datetime) -> tuple[datetime, datetime, str]:
             "assumed_regular_hours")
 
 
-def _exit_px(pos: dict, lasts: dict) -> float:
-    """Best price we have for a position we are closing.
+def live_px(sym: str, lasts: dict, broker) -> tuple[float | None, str]:
+    """A price that is true *now*, or nothing.
 
-    In broker mode the price is bookkeeping — the exit goes through
-    `close_position`, which needs no price at all — so a missing quote must
-    never be the reason a liquidation does not happen.
+    The bar is first choice. When a held symbol has no bar — the movers
+    universe rotated overnight, or the data response simply came back short —
+    the position still exists and still needs a current price, so ask the
+    quote endpoint for that one symbol. A stale mark is not an answer here:
+    decisions that compare price to a level (the OR-low stop) are wrong when
+    fed yesterday's number, and wrong is worse than absent.
     """
-    return pos.get("last_px") or pos.get("entry_px") or 0.0
+    if sym in lasts:
+        return lasts[sym], "bar"
+    if hasattr(broker, "quote_snapshot"):
+        try:
+            snap = broker.quote_snapshot(sym) or {}
+        except Exception:                             # noqa: BLE001
+            snap = {}
+        mid = snap.get("mid")
+        if mid:
+            return float(mid), "quote"
+    return None, "unavailable"
+
+
+def book_px(sym: str, pos: dict, lasts: dict, broker) -> tuple[float, str]:
+    """A price for the books, when the trade is happening regardless.
+
+    Liquidations are unconditional: in broker mode the exit goes through
+    close_position, which needs no price at all, and in simulated mode the
+    position has to leave the book whether or not a quote is available. So
+    this one always answers — falling back to the last mark, then the entry —
+    and names the source, because an accounting price and a market price are
+    not the same fact and the ledger should not pretend otherwise.
+    """
+    px, source = live_px(sym, lasts, broker)
+    if px is not None:
+        return px, source
+    for key in ("last_px", "entry_px"):
+        if pos.get(key):
+            return float(pos[key]), key
+    return 0.0, "none"
 
 
 def _stand_down(cfg, f, st: dict, ledger: Ledger, broker, arm: str,
@@ -234,9 +268,10 @@ def _stand_down(cfg, f, st: dict, ledger: Ledger, broker, arm: str,
     tick_key = now.strftime("%H:%M")
     closed, remaining = [], []
     for sym, pos in list(_positions(f, broker, st).items()):
-        px = _exit_px(pos, {})
+        px, px_src = book_px(sym, pos, {}, broker)
         if _fill(f, st, ledger, "sell", sym, px, pos["qty"],
-                 f"{reason}_flatten", broker, arm, today, tick_key):
+                 f"{reason}_flatten", broker, arm, today, tick_key,
+                 px_source=px_src):
             closed.append(sym)
         else:
             remaining.append(sym)
@@ -302,9 +337,10 @@ def run_fast_once(cfg: Config, broker, now: datetime | None = None,
         # overnight, and yesterday's OR stops are meaningless today.
         # (Adversarial review 2026-08-30, finding 5 — confirmed.)
         for sym, pos in list(_positions(f, broker, st).items()):
-            px = lasts.get(sym, pos.get("last_px", pos["entry_px"]))
+            px, px_src = book_px(sym, pos, lasts, broker)
             _fill(f, st, ledger, "sell", sym, px, pos["qty"],
-                  "overnight_flatten", broker, arm, today, "new_day")
+                  "overnight_flatten", broker, arm, today, "new_day",
+                  px_source=px_src)
         st.update({"day": today, "trades_today": 0, "stopped_today": False})
     if st.get("day_start_equity") is None or st.get("day") != today or \
        "day_equity_set" not in st:
@@ -322,9 +358,10 @@ def run_fast_once(cfg: Config, broker, now: datetime | None = None,
         if st["high_water_mark"] > 0 else 0.0
     if dd >= f.max_drawdown_pct:
         for sym, pos in list(_positions(f, broker, st).items()):
-            _fill(f, st, ledger, "sell", sym,
-                  lasts.get(sym, pos.get("last_px", pos["entry_px"])),
-                  pos["qty"], "drawdown_kill", broker, arm, today, tick_key)
+            px, px_src = book_px(sym, pos, lasts, broker)
+            _fill(f, st, ledger, "sell", sym, px, pos["qty"],
+                  "drawdown_kill", broker, arm, today, tick_key,
+                  px_source=px_src)
         st["halted"] = True
         ledger.write("fast_halt", arm=arm, reason=f"drawdown {dd:.1f}%")
         _save_state(state_path, st)
@@ -335,16 +372,20 @@ def run_fast_once(cfg: Config, broker, now: datetime | None = None,
         if st["day_start_equity"] > 0 else 0.0
     if not st["stopped_today"] and day_pnl_pct <= -f.daily_loss_stop_pct:
         for sym, pos in list(_positions(f, broker, st).items()):
-            _fill(f, st, ledger, "sell", sym, lasts[sym], pos["qty"],
-                  "daily_loss_stop", broker, arm, today, tick_key)
+            px, px_src = book_px(sym, pos, lasts, broker)
+            _fill(f, st, ledger, "sell", sym, px, pos["qty"],
+                  "daily_loss_stop", broker, arm, today, tick_key,
+                  px_source=px_src)
         st["stopped_today"] = True
         ledger.write("fast_day_stop", arm=arm, day_pnl_pct=round(day_pnl_pct, 3))
 
     # --- end-of-day flat --------------------------------------------------
     if now >= flat_dt:
         for sym, pos in list(_positions(f, broker, st).items()):
-            _fill(f, st, ledger, "sell", sym, lasts[sym], pos["qty"],
-                  "eod_flat", broker, arm, today, tick_key)
+            px, px_src = book_px(sym, pos, lasts, broker)
+            _fill(f, st, ledger, "sell", sym, px, pos["qty"],
+                  "eod_flat", broker, arm, today, tick_key,
+                  px_source=px_src)
     elif not st["stopped_today"] and now >= or_end:
         ors = {}
         for sym, df in bars.items():
@@ -356,9 +397,21 @@ def run_fast_once(cfg: Config, broker, now: datetime | None = None,
         held = _positions(f, broker, st)
         for sym, pos in list(held.items()):
             floor = st["or_low"].get(sym, ors.get(sym, (0, 0))[1])
-            if floor and sym in lasts and lasts[sym] < floor:
-                _fill(f, st, ledger, "sell", sym, lasts[sym], pos["qty"],
-                      "or_low_stop", broker, arm, today, tick_key)
+            if not floor:
+                continue
+            px, px_src = live_px(sym, lasts, broker)
+            if px is None:
+                # A stop cannot be evaluated against a price we do not have,
+                # and guessing with a stale mark would fire it at the wrong
+                # level. Say so out loud — a silently skipped stop is how a
+                # protective exit disappears without anyone noticing.
+                ledger.write("fast_stop_unevaluable", arm=arm, symbol=sym,
+                             day=today, tick=tick_key, floor=round(floor, 4))
+                continue
+            if px < floor:
+                _fill(f, st, ledger, "sell", sym, px, pos["qty"],
+                      "or_low_stop", broker, arm, today, tick_key,
+                      px_source=px_src)
 
         # entries: breakouts above OR high, ranked by strength
         held = _positions(f, broker, st)
