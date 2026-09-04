@@ -54,10 +54,21 @@ class ProbeResult:
                 "severity": self.severity, "detail": self.detail}
 
 
+def _plan(broker) -> dict:
+    """What tape is this account actually reading? Advisory, never blocking."""
+    if not hasattr(broker, "data_plan_probe"):
+        return {}
+    try:
+        return broker.data_plan_probe()
+    except Exception as exc:                          # noqa: BLE001
+        return {"error": f"{type(exc).__name__}: {exc}"[:200]}
+
+
 @dataclass
 class PreflightReport:
     results: list[ProbeResult] = field(default_factory=list)
     disabled: set[str] = field(default_factory=set)
+    plans: dict = field(default_factory=dict)
 
     @property
     def ok(self) -> bool:
@@ -80,6 +91,12 @@ class PreflightReport:
         for r in self.results:
             mark = "ok  " if r.ok else ("FAIL" if r.severity == BLOCKING else "warn")
             lines.append(f"[{mark}] {r.arm}/{r.probe} {r.detail}".rstrip())
+        for arm, plan in sorted(self.plans.items()):
+            if plan:
+                lines.append(f"[feed] {arm} effective={plan.get('effective_feed')} "
+                             f"sip_recent={plan.get('sip_recent')} "
+                             f"sip_delayed={plan.get('sip_delayed')} "
+                             f"iex={plan.get('iex')}")
         if self.disabled:
             lines.append("DATA_PREFLIGHT_FAIL — arms disabled: "
                          + ", ".join(sorted(self.disabled)))
@@ -191,12 +208,16 @@ def run_preflight(cfg, brokers: dict, *, ledger=None, notify=_notify) -> Preflig
         results = (probe_slow(cfg, broker) if arm == "slow"
                    else probe_intraday(cfg, broker, arm))
         report.results.extend(results)
+        report.plans[arm] = _plan(broker)
         if any(r.disqualifying for r in results):
             report.disabled.add(arm)
 
     if ledger is not None:
         for r in report.results:
             ledger.write("preflight", **r.as_dict())
+        for arm, plan in report.plans.items():
+            if plan:
+                ledger.write("data_plan", arm=arm, **plan)
         if report.disabled:
             ledger.write("preflight", status="DATA_PREFLIGHT_FAIL",
                          disabled=sorted(report.disabled),

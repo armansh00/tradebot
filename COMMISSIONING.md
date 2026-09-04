@@ -89,4 +89,12 @@ still not a pass.
 
 ### Result
 
-_Pending._
+_Pending._ Blocked on the data entitlement. On 2026-09-02 and 2026-09-03 every
+session ended `DATA_PREFLIGHT_FAIL` with fast and movers disabled, exactly as
+designed: seven launches per day, zero cancelled, handoffs recorded with their
+deferred tick lists, 12/14 and 13/14 ticks executed. The scheduler and
+persistence defects are closed in production. The intraday arms have generated
+no evidence because they have not been permitted to run.
+
+Feed decision recorded in `DECISION-2026-09-04-data-feed.md`: SIP retained,
+IEX rejected, entitlement to be purchased.

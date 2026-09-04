@@ -227,3 +227,57 @@ def test_preflight_runs_before_the_first_tick(cfg, ticks):
     assert kinds.index("preflight") < (kinds.index("tick") if "tick" in kinds
                                        else len(kinds))
     assert len(ticks) == len(build_schedule(OPEN, CLOSE, cfg))
+
+
+# ------------------------------------------------------------ feed provenance
+
+class PlanFake(DataFake):
+    """A broker that can say which tape it is entitled to."""
+
+    def __init__(self, plan, **kw):
+        super().__init__(**kw)
+        self.plan = plan
+
+    def data_plan_probe(self, symbol="SPY"):
+        if self.plan == "raise":
+            raise RuntimeError("probe blew up")
+        return dict(self.plan)
+
+
+ENTITLED = {"sip_recent": "ok", "sip_delayed": "ok", "iex": "ok",
+            "effective_feed": "sip"}
+FREE = {"sip_recent": "denied", "sip_delayed": "ok", "iex": "ok",
+        "effective_feed": "sip_delayed"}
+
+
+def test_the_feed_each_account_reads_is_recorded(cfg):
+    """Nothing in this repo ever wrote down which tape it was reading. The
+    code passes no `feed=`, and Alpaca serves 'the best available feed based
+    on the user's subscription' — so identical code on three accounts can
+    read three different tapes and leave an identical-looking ledger."""
+    from tradebot.ledger import Ledger
+    brokers = {"slow": PlanFake(ENTITLED), "fast": PlanFake(FREE),
+               "movers": PlanFake(FREE)}
+    report = run_preflight(cfg, brokers, ledger=Ledger(cfg.ledger_path),
+                           notify=lambda r: None)
+    assert report.plans["slow"]["effective_feed"] == "sip"
+    assert report.plans["fast"]["effective_feed"] == "sip_delayed"
+    plans = [e for e in _events(cfg.ledger_path) if e["type"] == "data_plan"]
+    assert {p["arm"] for p in plans} == {"slow", "fast", "movers"}
+    assert "[feed] slow effective=sip " in report.summary()
+
+
+def test_the_feed_probe_never_blocks_an_arm(cfg):
+    """Provenance is advisory. An arm that can read its data trades even if we
+    cannot work out which plan it is on."""
+    brokers = {"slow": PlanFake("raise"), "fast": PlanFake("raise"),
+               "movers": PlanFake("raise")}
+    report = run_preflight(cfg, brokers)
+    assert report.disabled == set()
+    assert "error" in report.plans["slow"]
+
+
+def test_a_broker_without_the_probe_is_not_an_error(cfg):
+    report = run_preflight(cfg, _brokers())
+    assert report.disabled == set()
+    assert report.plans == {"slow": {}, "fast": {}, "movers": {}}

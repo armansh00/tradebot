@@ -171,6 +171,54 @@ class AlpacaBroker:
         resp = client.get_most_actives(MostActivesRequest(top=n))
         return [a.symbol for a in resp.most_actives][:n]
 
+    def data_plan_probe(self, symbol: str = "SPY") -> dict:
+        """Which data feed is this account actually entitled to?
+
+        Nothing in this repository has ever recorded the answer. The code has
+        never passed `feed=`, and Alpaca's documented behaviour is to serve
+        "the best available feed based on the user's subscription" — so three
+        accounts running identical code can be reading three different tapes
+        and the ledger would look the same either way. On 2026-09-01 that
+        stopped being hypothetical.
+
+        Three questions, asked directly:
+          sip_recent   — SIP inside the last 15 minutes (needs Algo Trader Plus)
+          sip_delayed  — SIP older than 15 minutes (available on the free plan)
+          iex          — the free single-exchange feed
+
+        Advisory only. It disables nothing; it writes down what we are
+        actually reading, so the pre-registration can name a feed instead of
+        assuming one.
+        """
+        from datetime import datetime, timedelta, timezone
+        from alpaca.data.requests import StockBarsRequest
+        from alpaca.data.timeframe import TimeFrame
+
+        now = datetime.now(timezone.utc)
+        out: dict[str, object] = {"symbol": symbol, "asof": now.isoformat()}
+
+        def ask(label, feed, end):
+            try:
+                req = StockBarsRequest(symbol_or_symbols=symbol,
+                                       timeframe=TimeFrame.Day,
+                                       start=now - timedelta(days=7),
+                                       end=end, feed=feed)
+                bars = self._data.get_stock_bars(req)
+                out[label] = "ok" if len(bars.df) else "empty"
+            except Exception as exc:                  # noqa: BLE001 - grading it
+                msg = str(exc)
+                out[label] = ("denied" if "subscription" in msg.lower()
+                              else f"{type(exc).__name__}: {msg}"[:160])
+
+        ask("sip_recent", "sip", now)
+        ask("sip_delayed", "sip", now - timedelta(minutes=20))
+        ask("iex", "iex", now)
+        out["effective_feed"] = ("sip" if out.get("sip_recent") == "ok"
+                                 else "sip_delayed" if out.get("sip_delayed") == "ok"
+                                 else "iex" if out.get("iex") == "ok"
+                                 else "unknown")
+        return out
+
     def quote_snapshot(self, symbol: str) -> dict:
         """Best bid/ask and the midquote, right now.
 
