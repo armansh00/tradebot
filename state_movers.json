@@ -4,14 +4,14 @@
     "SNXX": {
       "qty": 1.5393993879348031,
       "entry_px": 16.26446015,
-      "last_px": 16.2401
+      "last_px": 16.4551
     }
   },
   "or_low": {
     "SNXX": 14.5
   },
   "cost_accrued": 0.0375,
-  "high_water_mark": 50.0,
+  "high_water_mark": 50.2935,
   "day": "2026-09-04",
   "day_start_equity": 50.0,
   "trades_today": 1,
