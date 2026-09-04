@@ -98,3 +98,44 @@ no evidence because they have not been permitted to run.
 
 Feed decision recorded in `DECISION-2026-09-04-data-feed.md`: SIP retained,
 IEX rejected, entitlement to be purchased.
+
+
+---
+
+## Run 3 — candidate
+
+Tag: `commissioning-candidate-2026-09-04`
+
+Three execution-safety defects, one commit and one regression suite each.
+Separate from run 2 on purpose: September 1's FAIL and each fixed candidate
+stay distinct records, and no fix is retrofitted into a tag that was already
+run.
+
+| Defect | Commit | Guard |
+|---|---|---|
+| halt file ignored by the intraday arms | `0c00b0c` | `tests/test_halt_semantics.py` (7) |
+| session close hardcoded at 16:00 | `094c767` | `tests/test_half_day.py` (8) |
+| exits indexed the universe snapshot | `c7e586e` | `tests/test_missing_bar_exits.py` (9) |
+
+Halt semantics, settled before the code was written rather than after:
+`.halt` blocks new entries, never blocks protective exits or reconciliation,
+and — being an emergency switch — flattens open intraday positions and keeps
+the arm down until it is lifted. The naive `if halted: return` would have
+fixed the reported bug while disabling every stop in the process.
+
+### Still open
+
+- **Data entitlement.** Unpurchased. The intraday arms remain
+  NOT COMMISSIONED and are producing no evidence; the safety work above is
+  what has to be true *before* they run, not a substitute for running them.
+- **`feed-binding` branch.** Unmerged by design until the subscription exists
+  and the probe shows SIP for the credentials in use. Merging first would
+  disable the slow arm, which is the only arm currently producing evidence.
+- **`book_equity` rebaseline.** A large equity drop is treated as an account
+  reset. Not reachable in the present configuration — a $50 book inside a
+  $100k account cannot drag raw equity into the trigger band — but on a
+  genuinely $50 account a 50% trading loss would re-anchor instead of
+  halting. Account resets should be an explicit event, never inferred from a
+  number. Documented, deliberately not folded into the execution patch.
+- **`max_positions`** is counted on buy orders rather than on the resulting
+  set of held symbols.
