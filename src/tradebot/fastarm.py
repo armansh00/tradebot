@@ -180,6 +180,38 @@ def opening_range(bars, or_end: datetime) -> tuple[float, float] | None:
 
 
 # ---------- the tick ------------------------------------------------------
+def session_bounds(broker, now: datetime) -> tuple[datetime, datetime, str]:
+    """Today's open and close in exchange time, from the exchange calendar.
+
+    Not from constants. `OPEN_T`/`CLOSE_T` were hardcoded 9:30 and 16:00, and
+    on a 13:00 half day that produced a flatten time of 15:30 — two and a half
+    hours after the bell. The arm would never reach its own flatten branch,
+    would go on believing the session was open until 16:00, and would carry
+    positions overnight in exact violation of the invariant it advertises.
+
+    A date list of early closes would fix this year and rot. The calendar is
+    the mechanism: half days, holidays and any future change to exchange hours
+    are one lookup, not a table someone has to remember to update.
+
+    Falls back to the constants only where no calendar is reachable, and says
+    which was used so the choice is never invisible in the record.
+    """
+    if hasattr(broker, "session_today"):
+        try:
+            window = broker.session_today()
+        except Exception:                             # noqa: BLE001
+            window = None
+        if window:
+            open_utc, close_utc = window
+            return (open_utc.astimezone(ET), close_utc.astimezone(ET),
+                    "exchange_calendar")
+    return (now.replace(hour=OPEN_T.hour, minute=OPEN_T.minute,
+                        second=0, microsecond=0),
+            now.replace(hour=CLOSE_T.hour, minute=CLOSE_T.minute,
+                        second=0, microsecond=0),
+            "assumed_regular_hours")
+
+
 def _exit_px(pos: dict, lasts: dict) -> float:
     """Best price we have for a position we are closing.
 
@@ -225,10 +257,7 @@ def run_fast_once(cfg: Config, broker, now: datetime | None = None,
 
     now = now or broker.now_et()
     today = now.date().isoformat()
-    open_dt = now.replace(hour=OPEN_T.hour, minute=OPEN_T.minute,
-                          second=0, microsecond=0)
-    close_dt = now.replace(hour=CLOSE_T.hour, minute=CLOSE_T.minute,
-                           second=0, microsecond=0)
+    open_dt, close_dt, cal = session_bounds(broker, now)
     or_end = open_dt + timedelta(minutes=f.or_minutes)
     flat_dt = close_dt - timedelta(minutes=f.flat_minutes_before_close)
 
@@ -369,6 +398,8 @@ def run_fast_once(cfg: Config, broker, now: datetime | None = None,
     equity = _mark_equity(f, broker, st, lasts)
     held = _positions(f, broker, st)
     ledger.write("fast_run", arm=arm, equity=equity, day=today,
+                 session_source=cal,
+                 session_close=close_dt.isoformat(),
                  cost_accrued=round(st.get("cost_accrued", 0.0), 4),
                  day_pnl_pct=round((equity / st["day_start_equity"] - 1) * 100, 3)
                  if st["day_start_equity"] > 0 else 0.0,
