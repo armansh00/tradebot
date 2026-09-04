@@ -180,6 +180,43 @@ def opening_range(bars, or_end: datetime) -> tuple[float, float] | None:
 
 
 # ---------- the tick ------------------------------------------------------
+def _exit_px(pos: dict, lasts: dict) -> float:
+    """Best price we have for a position we are closing.
+
+    In broker mode the price is bookkeeping — the exit goes through
+    `close_position`, which needs no price at all — so a missing quote must
+    never be the reason a liquidation does not happen.
+    """
+    return pos.get("last_px") or pos.get("entry_px") or 0.0
+
+
+def _stand_down(cfg, f, st: dict, ledger: Ledger, broker, arm: str,
+                reason: str, state_path, now) -> dict:
+    """Flatten what is held, then refuse to trade until the halt is lifted.
+
+    Runs on every halted tick, not only the first. A liquidation the venue
+    refused is retried next tick rather than assumed done — the point of a
+    kill switch is that it keeps being true.
+    """
+    today = now.date().isoformat()
+    tick_key = now.strftime("%H:%M")
+    closed, remaining = [], []
+    for sym, pos in list(_positions(f, broker, st).items()):
+        px = _exit_px(pos, {})
+        if _fill(f, st, ledger, "sell", sym, px, pos["qty"],
+                 f"{reason}_flatten", broker, arm, today, tick_key):
+            closed.append(sym)
+        else:
+            remaining.append(sym)
+    if reason == "halt_file":
+        st["halted_by_file"] = True
+    ledger.write("fast_halted", arm=arm, reason=reason, day=today,
+                 flattened=closed, still_held=remaining)
+    _save_state(state_path, st)
+    return {"status": "halted", "reason": reason,
+            "flattened": closed, "still_held": remaining}
+
+
 def run_fast_once(cfg: Config, broker, now: datetime | None = None,
                   arm: str = "fast") -> dict:
     f, ledger_path, state_path = _arm(cfg, arm)
@@ -195,8 +232,25 @@ def run_fast_once(cfg: Config, broker, now: datetime | None = None,
     or_end = open_dt + timedelta(minutes=f.or_minutes)
     flat_dt = close_dt - timedelta(minutes=f.flat_minutes_before_close)
 
-    if st.get("halted"):
-        return {"status": "halted"}
+    # --- halt: stop entering, never stop exiting -------------------------
+    # `.halt` is the emergency switch. Until 2026-09-04 the intraday arms did
+    # not look at it at all — the slow arm stopped and these two carried on
+    # trading, which is the worst possible reading of a kill switch. The
+    # obvious repair is worse still: `if halted: return` at the top of this
+    # function would also cancel the stop-loss, the daily loss stop and the
+    # end-of-day flatten, so pulling the switch would freeze the arm holding
+    # whatever it happened to hold. A halt blocks new risk; it does not
+    # abandon open risk.
+    #
+    # So a halted tick liquidates and then stands down. Two halts, deliberately
+    # not merged: the file is the human switch and lifts when the file goes;
+    # the drawdown kill is the arm's own and stays until its state is reset.
+    halt = ("halt_file" if cfg.halt_path.exists()
+            else "drawdown_kill" if st.get("halted") else None)
+    if halt:
+        return _stand_down(cfg, f, st, ledger, broker, arm, halt,
+                           state_path, now)
+
     if now < open_dt or now >= close_dt:
         return {"status": "market_closed"}
 
