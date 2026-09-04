@@ -11,6 +11,18 @@ name: data-preflight
 on:
   schedule:
     - cron: "13 11 * * 1-5"     # ~2h20m before a normal open
+  # Also on any change to the data path or to this workflow. An entitlement
+  # check that only runs on a schedule cannot answer "did that change break
+  # the feed?" at the moment the question is asked, and a push is the one
+  # trigger that is always available — `workflow_dispatch` needs a UI session
+  # or a token with Actions write, and neither is guaranteed to be at hand.
+  push:
+    branches: [main]
+    paths:
+      - "src/tradebot/preflight.py"
+      - "src/tradebot/broker.py"
+      - "config.yaml"
+      - ".github/workflows/preflight.yml"
   workflow_dispatch: {}
 
 permissions:
