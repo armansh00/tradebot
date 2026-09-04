@@ -1,0 +1,21 @@
+{
+  "forecast_for": "2026-09-04",
+  "created_at": "2026-09-03T22:00:00-04:00",
+  "frozen_at": "2026-09-04T05:06:49+00:00",
+  "author": "external_llm_relayed_by_user",
+  "spy_expected_range_low_pct": 0.90,
+  "spy_expected_range_high_pct": 1.35,
+  "spy_p_down": 0.52,
+  "relative_call": "semiconductors_over_energy",
+  "relative_call_instruments": ["SMH", "XLE"],
+  "invalidation": {"instrument": "WTI", "condition": ">=", "level": 93.00,
+                   "before": "09:30 ET", "adjudicable_from_repo_data": false},
+  "reference": {"spy_prior_close": 773.17,
+                "spy_prior_high": 774.03,
+                "spy_prior_low": 767.45,
+                "spy_prior_range_pct": 0.857,
+                "us10y": 4.76,
+                "wti": 91.30},
+  "scheduled_event": "US August employment report, 08:30 ET",
+  "scored": false
+}
