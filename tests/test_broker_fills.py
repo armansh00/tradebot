@@ -150,7 +150,8 @@ def test_missing_arm_account_degrades_to_simulated_rather_than_stopping(cfg, tmp
     from tradebot.ledger import Ledger
 
     class OneAccount:
-        def __init__(self, key_env, secret_env):
+        def __init__(self, key_env, secret_env, feed=None):
+            self.feed = feed
             if key_env != "ALPACA_API_KEY":
                 raise RuntimeError(f"{key_env} not set")
             self.n = "PA-ONLY"
@@ -176,8 +177,8 @@ def test_two_arms_on_one_account_is_caught_not_pooled(cfg, monkeypatch):
     import tradebot.cli as cli
 
     class SameAccount:
-        def __init__(self, *_):
-            pass
+        def __init__(self, *_, feed=None):
+            self.feed = feed
 
         def account_number(self):
             return "PA-SHARED"

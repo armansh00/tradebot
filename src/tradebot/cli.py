@@ -20,13 +20,13 @@ def _build_brokers(cfg, ledger=None):
     experiment continues on the weaker method, visibly, instead of stopping.
     """
     from .broker import AlpacaBroker
-    slow = AlpacaBroker(*cfg.creds("slow"))
+    slow = AlpacaBroker(*cfg.creds("slow"), feed=cfg.data.feed)
     brokers = {"slow": slow}
     seen = {slow.account_number(): "slow"}
     for arm in ("fast", "movers"):
         arm_cfg = getattr(cfg, arm)
         try:
-            b = AlpacaBroker(*cfg.creds(arm))
+            b = AlpacaBroker(*cfg.creds(arm), feed=cfg.data.feed)
             number = b.account_number()
             if number in seen:
                 raise RuntimeError(
@@ -217,7 +217,7 @@ def main(argv: list[str] | None = None) -> int:
         except ImportError:
             pass
         for arm in ("slow", "fast", "movers"):
-            b = AlpacaBroker(*cfg.creds(arm))
+            b = AlpacaBroker(*cfg.creds(arm), feed=cfg.data.feed)
             held = list(b.positions_detail())
             for sym in held:
                 print(f"{arm}: closing {sym} -> {b.close(sym).get('status')}")

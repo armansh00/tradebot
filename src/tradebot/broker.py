@@ -22,8 +22,13 @@ class AlpacaBroker:
     """
 
     def __init__(self, key_env: str = "ALPACA_API_KEY",
-                 secret_env: str = "ALPACA_SECRET_KEY"):
+                 secret_env: str = "ALPACA_SECRET_KEY",
+                 feed: str | None = None):
         self.key_env, self.secret_env = key_env, secret_env
+        # The declared tape, passed on every data request. None means "let
+        # Alpaca choose", which is what this repo did until 2026-09-04 and is
+        # no longer allowed on a production path.
+        self.feed = feed
         key = os.environ.get(key_env)
         secret = os.environ.get(secret_env)
         base = os.environ.get("ALPACA_BASE_URL", "https://paper-api.alpaca.markets")
@@ -86,7 +91,7 @@ class AlpacaBroker:
         end = datetime.combine(day, dtime(16, 0), et)
         req = StockBarsRequest(symbol_or_symbols=symbols,
                                timeframe=TimeFrame(5, TimeFrameUnit.Minute),
-                               start=start, end=end)
+                               start=start, end=end, **self._feed_kw())
         df = self._data.get_stock_bars(req).df.reset_index()
         out: dict[str, pd.DataFrame] = {}
         for sym in symbols:
@@ -152,7 +157,8 @@ class AlpacaBroker:
         from alpaca.data.timeframe import TimeFrame
         start = datetime.now(timezone.utc) - timedelta(days=int(days * 1.7) + 30)
         req = StockBarsRequest(symbol_or_symbols=symbols,
-                               timeframe=TimeFrame.Day, start=start)
+                               timeframe=TimeFrame.Day, start=start,
+                               **self._feed_kw())
         bars = self._data.get_stock_bars(req)
         out: dict[str, pd.Series] = {}
         df = bars.df.reset_index()
@@ -162,7 +168,16 @@ class AlpacaBroker:
         return out
 
     def most_actives(self, n: int) -> list[str]:
-        """Top-n most-active stocks by volume today (screener API)."""
+        """Top-n most-active stocks by volume today (screener API).
+
+        The one production data call the feed binding cannot cover: the
+        screener endpoint takes no `feed` parameter. It returns a ranking of
+        symbols rather than prices, and the movers arm's actual decisions are
+        made from bars and quotes that do carry the declared feed — but the
+        universe those decisions range over is selected by an endpoint whose
+        source we cannot pin. Recorded here so the claim "every production
+        call is bound" stays true as written and not by omission.
+        """
         from alpaca.data.historical.screener import ScreenerClient
         from alpaca.data.requests import MostActivesRequest
         import os as _os
@@ -170,6 +185,13 @@ class AlpacaBroker:
                                 _os.environ[self.secret_env])
         resp = client.get_most_actives(MostActivesRequest(top=n))
         return [a.symbol for a in resp.most_actives][:n]
+
+    def _feed_kw(self) -> dict:
+        """`feed=` for every data request, or nothing if none is declared.
+
+        Kept in one place so a new data call cannot quietly skip it.
+        """
+        return {"feed": self.feed} if self.feed else {}
 
     def data_plan_probe(self, symbol: str = "SPY") -> dict:
         """Which data feed is this account actually entitled to?
@@ -234,15 +256,23 @@ class AlpacaBroker:
         try:
             from alpaca.data.requests import StockLatestQuoteRequest
             q = self._data.get_stock_latest_quote(
-                StockLatestQuoteRequest(symbol_or_symbols=symbol))[symbol]
+                StockLatestQuoteRequest(symbol_or_symbols=symbol,
+                                        **self._feed_kw()))[symbol]
             bid, ask = float(q.bid_price), float(q.ask_price)
             if bid <= 0 or ask <= 0 or ask < bid:
                 return {"quote": None, "quote_error": f"crossed/empty {bid}/{ask}"}
             mid = (bid + ask) / 2
+            # The exchange codes are the only evidence the API gives back
+            # about where a quote came from: on the free plan both read "V"
+            # (IEX). Recorded so the served source can be checked against the
+            # requested one instead of taken on faith.
             return {"bid": round(bid, 4), "ask": round(ask, 4),
                     "mid": round(mid, 6),
                     "spread_bps": round((ask - bid) / mid * 1e4, 2),
-                    "quote_ts": str(getattr(q, "timestamp", ""))}
+                    "quote_ts": str(getattr(q, "timestamp", "")),
+                    "requested_feed": self.feed or "unspecified",
+                    "bid_exchange": str(getattr(q, "bid_exchange", "") or ""),
+                    "ask_exchange": str(getattr(q, "ask_exchange", "") or "")}
         except Exception as exc:
             return {"quote": None, "quote_error": f"{type(exc).__name__}: {exc}"}
 

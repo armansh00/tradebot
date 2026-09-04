@@ -64,6 +64,27 @@ def _plan(broker) -> dict:
         return {"error": f"{type(exc).__name__}: {exc}"[:200]}
 
 
+def _declared_feed_result(cfg, arm: str, plan: dict) -> list[ProbeResult]:
+    """The declared tape is a dependency, not a preference.
+
+    `cfg.data.feed` is part of the pre-registration. An arm that cannot obtain
+    it is not a degraded arm, it is a different experiment, so it does not
+    trade. When the probe itself cannot answer, the check abstains rather than
+    guesses: an unknown plan is a provenance gap, and a provenance gap is not
+    evidence that the wrong feed was served.
+    """
+    data = getattr(cfg, "data", None)
+    if data is None or not getattr(data, "require_declared_feed", False):
+        return []
+    if not plan or "effective_feed" not in plan:
+        return [ProbeResult(arm, "declared_feed", True, ADVISORY,
+                            "plan unknown, not enforced")]
+    served = plan["effective_feed"]
+    ok = served == data.feed
+    return [ProbeResult(arm, "declared_feed", ok, BLOCKING,
+                        f"declared {data.feed}, served {served}")]
+
+
 @dataclass
 class PreflightReport:
     results: list[ProbeResult] = field(default_factory=list)
@@ -207,8 +228,10 @@ def run_preflight(cfg, brokers: dict, *, ledger=None, notify=_notify) -> Preflig
             continue
         results = (probe_slow(cfg, broker) if arm == "slow"
                    else probe_intraday(cfg, broker, arm))
+        plan = _plan(broker)
+        report.plans[arm] = plan
+        results = list(results) + _declared_feed_result(cfg, arm, plan)
         report.results.extend(results)
-        report.plans[arm] = _plan(broker)
         if any(r.disqualifying for r in results):
             report.disabled.add(arm)
 

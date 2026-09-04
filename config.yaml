@@ -16,6 +16,14 @@ accounts:
 # Changing strategy or risk parameters mid-test invalidates the paper test:
 # log a note in NOTES.md and restart the evaluation clock.
 
+# Pre-registered data source. Every production call passes this explicitly and
+# an arm that cannot obtain it does not trade. See
+# DECISION-2026-09-04-data-feed.md — changing this value is an amendment to
+# the pre-registration, not a configuration tweak.
+data:
+  feed: sip
+  require_declared_feed: true
+
 universe: [SPY, QQQ, IWM, EFA, TLT, GLD]
 
 strategy:
