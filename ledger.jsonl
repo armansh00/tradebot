@@ -143,3 +143,16 @@
 {"ts": "2026-09-04T13:32:00+00:00", "type": "run", "equity": 50.17, "positions": {"IWM": 23.821969, "QQQ": 23.934307}, "day_change_pct": 0.36, "n_orders": 0}
 {"ts": "2026-09-04T13:32:00+00:00", "type": "tick", "kind": "slow", "scheduled": "2026-09-04T13:32:00+00:00", "status": {"slow": "ok"}}
 {"ts": "2026-09-04T13:32:02+00:00", "type": "session", "status": "handoff", "at": "2026-09-04T13:32:02.451068+00:00", "deadline": "2026-09-04T13:36:35.242318+00:00", "ticks_deferred": 13, "deferred": ["2026-09-04T14:05:00+00:00", "2026-09-04T14:35:00+00:00", "2026-09-04T15:05:00+00:00", "2026-09-04T15:35:00+00:00", "2026-09-04T16:05:00+00:00", "2026-09-04T16:35:00+00:00", "2026-09-04T17:05:00+00:00", "2026-09-04T17:35:00+00:00", "2026-09-04T18:05:00+00:00", "2026-09-04T18:35:00+00:00", "2026-09-04T19:05:00+00:00", "2026-09-04T19:35:00+00:00", "2026-09-04T19:58:00+00:00"], "ran": 1, "missed": 0, "resumed": 0}
+{"ts": "2026-09-04T14:24:48+00:00", "type": "fills_mode_fallback", "arm": "movers", "reason": "shares account PA34GE36D3Q5 with the slow arm"}
+{"ts": "2026-09-04T14:24:48+00:00", "type": "session", "status": "start", "started": "2026-09-04T14:24:48.300440+00:00", "market_open": "2026-09-04T13:30:00+00:00", "market_close": "2026-09-04T20:00:00+00:00", "deadline": "2026-09-04T20:04:48.300440+00:00", "ticks_planned": 14, "late_minutes": 54.8}
+{"ts": "2026-09-04T14:24:49+00:00", "type": "preflight", "arm": "slow", "probe": "daily_closes", "ok": true, "severity": "blocking", "detail": "2 rows"}
+{"ts": "2026-09-04T14:24:49+00:00", "type": "preflight", "arm": "fast", "probe": "intraday_5min", "ok": true, "severity": "blocking", "detail": "2 rows"}
+{"ts": "2026-09-04T14:24:49+00:00", "type": "preflight", "arm": "fast", "probe": "quote_snapshot", "ok": true, "severity": "advisory", "detail": "mid 771.015"}
+{"ts": "2026-09-04T14:24:49+00:00", "type": "preflight", "arm": "movers", "probe": "most_actives", "ok": true, "severity": "blocking", "detail": "10 symbols"}
+{"ts": "2026-09-04T14:24:49+00:00", "type": "preflight", "arm": "movers", "probe": "intraday_5min", "ok": true, "severity": "blocking", "detail": "2 rows"}
+{"ts": "2026-09-04T14:24:49+00:00", "type": "preflight", "arm": "movers", "probe": "quote_snapshot", "ok": true, "severity": "advisory", "detail": "mid 1.865"}
+{"ts": "2026-09-04T14:24:49+00:00", "type": "data_plan", "arm": "slow", "symbol": "SPY", "asof": "2026-09-04T14:24:48.422315+00:00", "sip_recent": "ok", "sip_delayed": "ok", "iex": "ok", "effective_feed": "sip"}
+{"ts": "2026-09-04T14:24:49+00:00", "type": "data_plan", "arm": "fast", "symbol": "SPY", "asof": "2026-09-04T14:24:48.706063+00:00", "sip_recent": "ok", "sip_delayed": "ok", "iex": "ok", "effective_feed": "sip"}
+{"ts": "2026-09-04T14:24:49+00:00", "type": "data_plan", "arm": "movers", "symbol": "SPY", "asof": "2026-09-04T14:24:48.939878+00:00", "sip_recent": "ok", "sip_delayed": "ok", "iex": "ok", "effective_feed": "sip"}
+{"ts": "2026-09-04T14:24:49+00:00", "type": "tick_missed", "scheduled": "2026-09-04T14:05:00+00:00", "kind": "fast", "late_minutes": 19.8, "reason": "process_started_after_tick"}
+{"ts": "2026-09-04T14:35:01+00:00", "type": "tick", "kind": "fast", "scheduled": "2026-09-04T14:35:00+00:00", "status": {"fast": "ok", "movers": "ok"}}

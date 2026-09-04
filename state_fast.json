@@ -1,0 +1,13 @@
+{
+  "cash": 50.0,
+  "positions": {},
+  "or_low": {},
+  "cost_accrued": 0.0,
+  "high_water_mark": 50.0,
+  "day": "2026-09-04",
+  "day_start_equity": 50.0,
+  "trades_today": 0,
+  "stopped_today": false,
+  "halted": false,
+  "day_equity_set": "2026-09-04"
+}
