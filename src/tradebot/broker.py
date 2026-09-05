@@ -188,6 +188,33 @@ class AlpacaBroker:
             out[sym] = pd.Series(sub["close"].to_numpy(), name=sym)
         return out
 
+    def daily_bars(self, symbols: list[str], days: int) -> dict:
+        """Daily OHLC per symbol, oldest first. `daily_closes` gives the
+        strategy what it needs; the forecast scorer needs the high and the low
+        as well, and taking them from the same endpoint keeps one source of
+        truth for the day."""
+        from datetime import datetime, timedelta, timezone
+        from alpaca.data.requests import StockBarsRequest
+        from alpaca.data.timeframe import TimeFrame
+        start = datetime.now(timezone.utc) - timedelta(days=int(days * 1.7) + 5)
+        # `_feed_kw` arrives with the feed-binding work; until then this
+        # follows the same "best available feed" default as every other call
+        # rather than pinning a different one behind the strategy's back.
+        feed_kw = self._feed_kw() if hasattr(self, "_feed_kw") else {}
+        req = StockBarsRequest(symbol_or_symbols=symbols,
+                               timeframe=TimeFrame.Day, start=start, **feed_kw)
+        df = bars_frame(self._data.get_stock_bars(req))
+        out: dict[str, pd.DataFrame] = {}
+        for sym in symbols:
+            sub = df[df["symbol"] == sym].sort_values("timestamp")
+            if sub.empty:
+                continue
+            out[sym] = pd.DataFrame({
+                "d": pd.to_datetime(sub["timestamp"]).dt.tz_convert(ET).dt.date,
+                "o": sub["open"].to_numpy(), "h": sub["high"].to_numpy(),
+                "l": sub["low"].to_numpy(), "c": sub["close"].to_numpy()})
+        return out
+
     def most_actives(self, n: int) -> list[str]:
         """Top-n most-active stocks by volume today (screener API)."""
         from alpaca.data.historical.screener import ScreenerClient

@@ -1,5 +1,6 @@
 """python -m tradebot <command>"""
 from __future__ import annotations
+import json
 import os
 import sys
 from .config import load_config
@@ -265,6 +266,95 @@ def main(argv: list[str] | None = None) -> int:
         print(report.summary())
         return 0 if report.ok else 1
 
+    if cmd in ("score-forecast", "climatology", "forecast-report"):
+        try:
+            from dotenv import load_dotenv
+            load_dotenv(cfg.root / ".env")
+        except ImportError:
+            pass
+        import glob
+        from datetime import date as _d, datetime as _dt
+        from .broker import AlpacaBroker
+        from .forecast import (aggregate, climatology_from_closes,
+                               market_from_bars, score)
+
+        fdir = cfg.root / "forecasts"
+        clim_path = fdir / "CLIMATOLOGY.json"
+
+        if cmd == "climatology":
+            # Declared once, from a mechanically fixed window that ends at the
+            # pre-registered research cutoff. A baseline picked after the
+            # results are in is not a baseline.
+            if clim_path.exists():
+                print(f"already declared: {clim_path.read_text().strip()}")
+                return 0
+            through = (cfg.vault_dates or {}).get("research_end", "2026-01-31")
+            b = AlpacaBroker(*cfg.creds("slow"))
+            bars = b.daily_bars(["SPY"], 2000).get("SPY")
+            if bars is None or bars.empty:
+                print("no SPY history returned; nothing declared")
+                return 1
+            cut = _dt.fromisoformat(through).date()
+            closes = [float(c) for d, c in zip(bars["d"], bars["c"]) if d <= cut]
+            clim = climatology_from_closes(closes, through=through)
+            clim_path.write_text(json.dumps(clim, indent=2) + "\n")
+            print(json.dumps(clim, indent=2))
+            return 0
+
+        clim = json.loads(clim_path.read_text()) if clim_path.exists() else None
+
+        if cmd == "forecast-report":
+            scored = [json.loads(open(f).read())
+                      for f in sorted(glob.glob(str(fdir / "*.scored.json")))]
+            print(json.dumps(aggregate(scored, clim), indent=2))
+            return 0
+
+        day = args[1] if len(args) > 1 else _d.today().isoformat()
+        src = fdir / f"{day}.json"
+        if not src.exists():
+            print(f"no frozen forecast for {day}; nothing to score")
+            return 1
+        dst = fdir / f"{day}.scored.json"
+        if dst.exists():
+            # Scored once. Re-scoring a session after the fact is how a record
+            # drifts, and the inputs are not going to change.
+            print(dst.read_text())
+            return 0
+
+        forecast = json.loads(src.read_text())
+        b = AlpacaBroker(*cfg.creds("slow"))
+        syms = ["SPY"] + list(forecast.get("relative_call_instruments")
+                              or ["SMH", "XLE"])
+        bars = b.daily_bars(syms, 30)
+        target = _dt.fromisoformat(day).date()
+
+        def pair(sym):
+            df = bars.get(sym)
+            if df is None or df.empty:
+                return (None, None)
+            rows = [(d, float(c)) for d, c in zip(df["d"], df["c"]) if d <= target]
+            if len(rows) < 2 or rows[-1][0] != target:
+                return (None, None)
+            return (rows[-2][1], rows[-1][1])
+
+        spy = bars.get("SPY")
+        row = None if spy is None else [r for r in spy.to_dict("records")
+                                        if r["d"] == target]
+        if not row:
+            print(f"no SPY session bar for {day}; not scored")
+            return 1
+        closes = {s: pair(s) for s in syms}
+        if closes["SPY"][0] is None:
+            print(f"no prior SPY close for {day}; not scored")
+            return 1
+        market = market_from_bars(
+            closes, {"high": row[0]["h"], "low": row[0]["l"], "close": row[0]["c"]},
+            source=f"alpaca daily bars, fetched {_dt.utcnow().isoformat(timespec='seconds')}Z")
+        result = score(forecast, market, clim)
+        dst.write_text(json.dumps(result, indent=2) + "\n")
+        print(json.dumps(result, indent=2))
+        return 0
+
     if cmd == "session":
         try:
             from dotenv import load_dotenv
@@ -325,7 +415,7 @@ def main(argv: list[str] | None = None) -> int:
         return 0
 
     print("Usage: python -m tradebot "
-          "[run|run-fast|run-movers|session|preflight|verify|flatten|sweep|rotate|validate|budget|chat|status|pnl|why SYM|decisions|report|evaluate|compare|kill|resume]")
+          "[run|run-fast|run-movers|session|preflight|score-forecast|climatology|forecast-report|verify|flatten|sweep|rotate|validate|budget|chat|status|pnl|why SYM|decisions|report|evaluate|compare|kill|resume]")
     return 0 if cmd == "help" else 1
 
 

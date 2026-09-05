@@ -1,0 +1,56 @@
+name: forecast-score
+
+# Score yesterday's frozen forecast after the close, from Alpaca's daily bars.
+#
+# The scorer is a separate program from whoever wrote the forecast, and it runs
+# on a schedule rather than on request, so the verdict never depends on someone
+# deciding it is a good moment to look. It places no orders and reads no state
+# beyond the forecast file.
+
+on:
+  schedule:
+    - cron: "40 21 * * 1-5"     # 17:40 ET, after the close and the late prints
+  workflow_dispatch: {}
+  push:
+    branches: [main]
+    paths:
+      - "src/tradebot/forecast.py"
+      - ".github/workflows/forecast-score.yml"
+
+permissions:
+  contents: write
+
+jobs:
+  score:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install -r requirements.txt
+      - name: Declare the climatology if it has never been declared
+        env:
+          ALPACA_API_KEY: ${{ secrets.ALPACA_API_KEY }}
+          ALPACA_SECRET_KEY: ${{ secrets.ALPACA_SECRET_KEY }}
+        run: PYTHONPATH=src python -m tradebot climatology
+      - name: Score today's forecast
+        env:
+          ALPACA_API_KEY: ${{ secrets.ALPACA_API_KEY }}
+          ALPACA_SECRET_KEY: ${{ secrets.ALPACA_SECRET_KEY }}
+        run: PYTHONPATH=src python -m tradebot score-forecast || true
+      - name: Running totals
+        env:
+          ALPACA_API_KEY: ${{ secrets.ALPACA_API_KEY }}
+          ALPACA_SECRET_KEY: ${{ secrets.ALPACA_SECRET_KEY }}
+        run: PYTHONPATH=src python -m tradebot forecast-report || true
+      - name: Commit the verdict
+        if: always()
+        run: |
+          git config user.name  tradebot
+          git config user.email tradebot@users.noreply.github.com
+          git add forecasts || true
+          git diff --cached --quiet && exit 0
+          git commit -q -m "forecast scored $(date -u +%F) [skip ci]"
+          git pull --rebase -q && git push -q
