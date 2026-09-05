@@ -12,6 +12,34 @@ class BrokerError(RuntimeError):
     pass
 
 
+def bars_frame(resp) -> pd.DataFrame:
+    """Alpaca's bar response as a flat frame, empty windows included.
+
+    `resp.df` carries a (symbol, timestamp) MultiIndex when there are bars and
+    a bare empty frame when there are none, so `reset_index()` on an empty
+    response yields no `symbol` column and the very next line — the filter
+    that splits the response per symbol — raises `KeyError: 'symbol'`.
+
+    That crash sat behind the SIP entitlement error for three days. The moment
+    the subscription was fixed the request started succeeding, came back empty
+    because it was two hours before the open, and the preflight failed on our
+    own bug while reporting the accounts as healthy. It is not confined to the
+    preflight: a mid-session tick asking for a halted symbol, or for a
+    screener pick with no prints yet, would have died the same way.
+
+    An empty window is a fact about the market, not an error. It gets the
+    right shape and no rows.
+    """
+    df = getattr(resp, "df", None)
+    if df is None or df.empty:
+        return pd.DataFrame(columns=["symbol", "timestamp",
+                                     "open", "high", "low", "close", "volume"])
+    df = df.reset_index()
+    if "symbol" not in df.columns:                    # single-symbol responses
+        df["symbol"] = ""
+    return df
+
+
 class AlpacaBroker:
     """One instance per paper account.
 
@@ -87,7 +115,7 @@ class AlpacaBroker:
         req = StockBarsRequest(symbol_or_symbols=symbols,
                                timeframe=TimeFrame(5, TimeFrameUnit.Minute),
                                start=start, end=end)
-        df = self._data.get_stock_bars(req).df.reset_index()
+        df = bars_frame(self._data.get_stock_bars(req))
         out: dict[str, pd.DataFrame] = {}
         for sym in symbols:
             sub = df[df["symbol"] == sym].sort_values("timestamp")
@@ -153,9 +181,8 @@ class AlpacaBroker:
         start = datetime.now(timezone.utc) - timedelta(days=int(days * 1.7) + 30)
         req = StockBarsRequest(symbol_or_symbols=symbols,
                                timeframe=TimeFrame.Day, start=start)
-        bars = self._data.get_stock_bars(req)
         out: dict[str, pd.Series] = {}
-        df = bars.df.reset_index()
+        df = bars_frame(self._data.get_stock_bars(req))
         for sym in symbols:
             sub = df[df["symbol"] == sym].sort_values("timestamp")
             out[sym] = pd.Series(sub["close"].to_numpy(), name=sym)
