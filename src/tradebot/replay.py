@@ -202,6 +202,25 @@ def movers_proxy(daily: dict, day, candidates: list[str], n: int,
 
 # ------------------------------------------------------------------ the run
 
+def window_consumed(cfg: Config, arm: str, tag: str) -> bool:
+    """Has the research log already recorded a replay of this arm over this
+    window? The artifact and the log entry are separate facts — a lost
+    artifact must not re-open a window the chain says was consumed."""
+    path = cfg.root / "research_log.jsonl"
+    if not path.exists():
+        return False
+    for line in path.read_text().splitlines():
+        try:
+            row = json.loads(line)
+        except json.JSONDecodeError:
+            continue
+        if row.get("type") == "replay" and row.get("arm") == arm and (
+                row.get("window") == tag
+                or (row.get("window") is None and row.get("months") is not None)):
+            return True
+    return False
+
+
 def _period(day, cfg: Config) -> str:
     cut = datetime.fromisoformat(str((cfg.vault_dates or {}).get(
         "research_end", "2026-01-31"))).date()
@@ -218,7 +237,7 @@ def replay(cfg: Config, broker, arm: str, months: int, out_dir: Path,
     if not sessions:
         raise RuntimeError("no sessions in range")
     tag = f"{arm}-{sessions[0][0]}-to-{sessions[-1][0]}"
-    if (out_dir / f"{tag}.md").exists():
+    if (out_dir / f"{tag}.md").exists() or window_consumed(cfg, arm, tag):
         # Already done for this exact window. Re-running is the same
         # computation with the same answer, and the one-shot rule is about
         # not re-running with *different* settings — but a second research
@@ -274,6 +293,7 @@ def replay(cfg: Config, broker, arm: str, months: int, out_dir: Path,
         for r in results:
             w.writerow(asdict(r))
     summary = summarize(results, arm)
+    summary["window"] = tag
     (out_dir / f"{tag}.summary.json").write_text(json.dumps(summary, indent=2) + "\n")
     (out_dir / f"{tag}.md").write_text(render(summary, arm, sessions[0][0],
                                                sessions[-1][0], csv_path.name))
@@ -320,6 +340,9 @@ def summarize(results: list[SessionResult], arm: str) -> dict:
         "arm": arm,
         "universe": "proxy (prior-day dollar volume over a fixed list)"
                     if arm == "movers" else "as registered",
+        "target_hypothesis": ("NOT ADJUDICATED: historical universe does not "
+                              "reproduce the live share-volume screener")
+                             if arm == "movers" else "as registered",
         "all": _stats(results),
         "pre_vault": _stats([r for r in results if r.period == "pre_vault"]),
         "vault": _stats([r for r in results if r.period == "vault"]),
@@ -347,7 +370,8 @@ def render(summary: dict, arm: str, first, last, csv_name: str) -> str:
                 f"| naive annualized Sharpe | {s['naive_annualized_sharpe']} |\n"
                 f"| kill-switch halts / day stops | {s['halts']} / {s['day_stops']} |\n")
 
-    caveat = ("The universe is a **proxy**: the live arm screens Alpaca's "
+    caveat = ("**TARGET_HYPOTHESIS: NOT ADJUDICATED.** "
+              "The universe is a **proxy**: the live arm screens Alpaca's "
               "most-actives list each morning and there is no historical "
               "screener, so the replay ranks a fixed candidate list by "
               "prior-day dollar volume. Same rules, approximate universe. "

@@ -403,6 +403,8 @@ def main(argv: list[str] | None = None) -> int:
         record(cfg.root / "research_log.jsonl", type="replay", arm=arm,
                months=months, universe=summary["universe"],
                code_sha=sha,
+               window=summary.get("window"),
+               rerun_reason=os.environ.get("TRADEBOT_RERUN_REASON") or None,
                vault_cutoff=str((cfg.vault_dates or {}).get("research_end")),
                vault_sessions=summary["vault"].get("sessions", 0),
                note="one-shot confirmatory read of the registered rules over "
