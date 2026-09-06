@@ -1,0 +1,29 @@
+{
+  "hypothesis_id": "F-01",
+  "domain": "forecast",
+  "claim": "The narrative widens its expected SPY high-low interval ahead of a scheduled macro release, and the realized range contracts instead.",
+  "why_it_might_persist": "Not a market inefficiency — a property of the forecaster. A narrative reasons from the size of the surprise to the size of the reaction, but an index absorbs a scheduled release that resolves uncertainty by trading in a narrower band once the number is known. If the heuristic is systematically inverted it will keep being inverted, because nothing in the writing process ever sees the realized range.",
+  "observable_prediction": "On sessions carrying a preregistered scheduled_event, realized_pct falls below predicted_low_pct more often than chance, and the signed miss is more negative than on sessions with no scheduled event.",
+  "falsifier": "No difference in signed miss between event and non-event sessions at or above the minimum observation count, or a difference in the opposite direction.",
+  "predictions": [
+    {"id": "P1", "metric": "signed_range_miss_event_sessions", "operator": "<", "value": 0},
+    {"id": "P2", "metric": "signed_range_miss_event_minus_nonevent", "operator": "<", "value": 0}
+  ],
+  "falsifiers": [
+    {"prediction": "P1",
+     "predicate": {"metric": "signed_range_miss_event_sessions", "operator": ">=", "value": 0}},
+    {"prediction": "P2",
+     "predicate": {"metric": "signed_range_miss_event_minus_nonevent", "operator": ">=", "value": 0}}
+  ],
+  "minimum_observations": 30,
+  "minimum_event_sessions": 12,
+  "evaluation_dataset": "frozen_forecasts_only",
+  "costs": "not_applicable",
+  "benchmark": "non_event_sessions_same_forecaster",
+  "multiplicity_adjustment": "required",
+  "lineage_parent": null,
+  "declared_before_code": true,
+  "declared_at": "2026-09-06",
+  "observations_so_far": 1,
+  "note": "Registered after exactly one contradicting session (2026-09-04: interval widened to 0.90-1.35 percent on the August payroll release, realized 0.5005 percent). One session is an anecdote. This file exists so the claim is testable rather than repeatable — the prediction and the falsifier are fixed now, before the sample that would decide it exists."
+}

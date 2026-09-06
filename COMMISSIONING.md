@@ -139,3 +139,51 @@ fixed the reported bug while disabling every stop in the process.
   number. Documented, deliberately not folded into the execution patch.
 - **`max_positions`** is counted on buy orders rather than on the resulting
   set of held symbols.
+
+
+---
+
+## Run 4 — candidate, criteria fixed before the session
+
+Tag: `commissioning-candidate-2026-09-06`. First session: **2026-09-08**
+(Monday is Labor Day).
+
+Distinct from candidate 3 by four changes, each with its own commit and
+tests: empty-frame handling, the forecast scorer, movers account routing
+restored, and the feed binding merged so SIP is an enforced dependency
+rather than an assumption. Gate cleared before tagging — production
+preflight returned `declared=sip served=sip own account` for all three arms.
+
+**The verdict is per arm.** Run 1 was reported as one FAIL covering three
+arms, which was accurate but coarse: the slow arm did everything asked of it
+that day. Each execution path now gets its own result, and an arm's verdict
+depends only on its own path.
+
+Written down before the session, so it cannot be fitted to the outcome:
+
+| Arm | Passes only if |
+|---|---|
+| slow | Preflight clears it. Its tick runs at open+2 on the right account. Orders — or the reasoned absence of orders — are recorded with decisions. |
+| fast | Preflight clears it on SIP and its own account. Every scheduled fast tick either executes or is recorded as missed with its lateness. Fills are broker fills, not simulated. Flat before the close. |
+| movers | As fast, plus: the universe is screened and recorded, and the arm is on its own account — not the slow arm's, which is what silently happened on 2026-09-04. |
+
+Failing conditions, any of which fails the arm regardless of P&L: a tick that
+neither executes nor is recorded; a gap the record does not account for; an
+arm trading on a feed or an account other than the declared one; a
+liquidation that does not happen because a price was missing.
+
+P&L carries zero weight. Three sessions of trading tell you nothing about
+profitability and the pre-registered evaluation window is eight weeks; what
+Tuesday can establish is only whether the instrument does what it says.
+
+### Still open, unchanged by this candidate
+
+- **`book_equity` rebaseline.** A large equity drop is treated as an account
+  reset. Not reachable in the present configuration, but on a genuinely $50
+  account a 50% trading loss would re-anchor instead of halting. Account
+  resets should be an explicit event, never inferred from a number.
+- **`max_positions`** is counted on buy orders rather than on the resulting
+  set of held symbols.
+- **Invalidation conditions the scorer cannot observe.** Three in a row now.
+  Not retrofitted; the next forecast should name an instrument this
+  repository already fetches.
