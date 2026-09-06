@@ -66,6 +66,21 @@ class EvalCfg:
     max_manual_overrides: int
 
 
+@dataclass
+class DataCfg:
+    """The tape the strategies are registered against.
+
+    Before 2026-09-04 this did not exist and no call passed `feed=`. Alpaca
+    serves "the best available feed based on the user's subscription", so the
+    data source was whatever each account happened to be entitled to on the
+    day — invisible in the ledger, and free to change under us without a
+    single line of code moving. A strategy tested on the consolidated tape
+    and run on one exchange is not the same strategy.
+    """
+    feed: str = "sip"
+    require_declared_feed: bool = True
+
+
 DEFAULT_ACCOUNTS = {
     "slow": {"key_env": "ALPACA_API_KEY", "secret_env": "ALPACA_SECRET_KEY"},
     "fast": {"key_env": "ALPACA_API_KEY", "secret_env": "ALPACA_SECRET_KEY"},
@@ -76,6 +91,7 @@ DEFAULT_ACCOUNTS = {
 @dataclass
 class Config:
     universe: list[str]
+    data: DataCfg
     strategy: StrategyCfg
     risk: RiskCfg
     evaluation: EvalCfg
@@ -144,6 +160,7 @@ def load_config(root: str | os.PathLike | None = None) -> Config:
     raw = yaml.safe_load((root_path / "config.yaml").read_text())
     return Config(
         universe=[s.upper() for s in raw["universe"]],
+        data=DataCfg(**(raw.get("data") or {})),
         strategy=StrategyCfg(**raw["strategy"]),
         risk=RiskCfg(**{"book_cap": 0.0, **raw["risk"]}),
         evaluation=EvalCfg(**raw["evaluation"]),

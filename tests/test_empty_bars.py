@@ -44,6 +44,7 @@ def _multi(rows):
 def _broker():
     b = AlpacaBroker.__new__(AlpacaBroker)     # no credentials, no network
     b.key_env, b.secret_env, b.dry_run = "K", "S", False
+    b.feed = "sip"                                  # the declared tape
     return b
 
 

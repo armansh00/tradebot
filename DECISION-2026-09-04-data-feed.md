@@ -74,3 +74,58 @@ to today.
 - **Fast and movers:** NOT COMMISSIONED. The market-data preflight prevents
   entry into their execution path, so no evidence about them is being
   generated at all.
+
+
+---
+
+## Binding the feed (branch `feed-binding`, not yet merged)
+
+Prepared but deliberately unmerged: turning SIP from an assumption into an
+enforced dependency will disable any arm that cannot obtain it, and until the
+subscription exists that includes the slow arm — the only one currently
+producing evidence. Merging before the purchase would stop the working arm to
+prove a point. The sequence stays: buy, probe, document, merge, tag,
+recommission.
+
+What the branch does:
+
+- `config.yaml` declares `data: {feed: sip, require_declared_feed: true}`.
+  Changing that value is an amendment to the pre-registration, visible in the
+  diff, not a runtime decision.
+- Every production data call passes it: daily bars, intraday bars, latest
+  quotes. One helper (`_feed_kw`) supplies it, so a new data call cannot
+  quietly skip one.
+- Quotes record `requested_feed` alongside the bid and ask exchange codes.
+  Bars carry no source field, so a quote's exchange codes are the only
+  evidence the API returns about where the data came from — on the free plan
+  both read `V` (IEX). Requested and served can now be compared instead of
+  assumed equal.
+- Preflight probes the same declared feed through the same endpoints the
+  trading path uses, and an arm served anything else does not trade.
+  `sip_delayed` counts as anything else: fifteen-minute-old consolidated data
+  is a different information set from live consolidated data, and the intraday
+  arms are built on exactly that difference.
+- When the probe itself fails, the check abstains rather than guesses. A
+  provenance gap is not evidence that the wrong feed was served, and refusing
+  to trade on a failed probe would be a different error from the one this
+  check exists to prevent.
+
+**One production call cannot be bound.** The most-actives screener endpoint
+takes no `feed` parameter. It returns a ranking of symbols, not prices, and
+the movers arm's decisions are made from bars and quotes that do carry the
+declared feed — but the universe those decisions range over is selected by an
+endpoint whose source we cannot pin. Stated here so that "every production
+call is bound" is true as written rather than true by omission.
+
+**There is no streaming path.** Nothing in `src/tradebot/` opens a websocket
+today, so the streaming half of the binding is not yet written. It will be
+needed if the arms ever move off polled bars.
+
+## The slow arm's earlier record
+
+Left as it is. From this point the feed is explicit and recorded; before it,
+the honest statement is *feed not recorded*, and that is what the record will
+continue to say. Reconstructing which tape those sessions read — from bar
+volumes, or by re-querying the same windows under a known feed — would produce
+an inference presented in the same place as measurements. The gap is smaller
+than the confusion that would replace it.
