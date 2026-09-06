@@ -12,6 +12,7 @@ So this directory holds two categories, and they are never mixed.
 | Session | File | Committed |
 |---|---|---|
 | 2026-09-04 | `2026-09-04.json` | 05:06 UTC, 8h24m before the open |
+| 2026-09-08 | `2026-09-08.json` | 2026-09-06 05:20 UTC, two days ahead (Labor Day) |
 
 **Made in conversation only (NOT scoreable)**
 
@@ -61,3 +62,19 @@ whole point — the forecaster does not hold the pen on its own verdict.
 Brier can sit arbitrarily close to zero and the ratio is noise wearing a
 decimal point. `aggregate` computes the Brier skill score across a run of
 sessions, with n attached.
+
+
+## A note on the 2026-09-08 invalidation
+
+It names the 10-year Treasury yield below 4.70%. This repository's only data
+source is Alpaca, which serves equities and options — not Treasury yields —
+so this condition will score `unadjudicable` exactly as the WTI ones did.
+
+That is the correct verdict for a forecast already frozen, and it is not
+retrofitted. But it is now the third condition in a row that the scorer
+cannot observe, which makes the invalidation field decorative rather than
+binding. Two ways out, and they are not equivalent: give the scorer a frozen
+source for the named instrument, or name instruments the scorer already
+records. The second costs nothing and is available immediately — TLT and IEF
+are equity ETFs whose prices this repository fetches every session, and a
+level on one of them is a real commitment that a real program can settle.
