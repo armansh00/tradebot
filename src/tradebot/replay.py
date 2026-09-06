@@ -217,6 +217,15 @@ def replay(cfg: Config, broker, arm: str, months: int, out_dir: Path,
     sessions = [s for s in broker.calendar(start, today) if s[0] < today]
     if not sessions:
         raise RuntimeError("no sessions in range")
+    tag = f"{arm}-{sessions[0][0]}-to-{sessions[-1][0]}"
+    if (out_dir / f"{tag}.md").exists():
+        # Already done for this exact window. Re-running is the same
+        # computation with the same answer, and the one-shot rule is about
+        # not re-running with *different* settings — but a second research
+        # record for an identical run is noise in a chain that is supposed
+        # to mean something.
+        log(f"{tag}: already replayed, leaving it alone")
+        return {"skipped": tag}
 
     # An isolated config root so the replay's ledgers and state never touch
     # the live ones. Same config.yaml, different directory.
@@ -258,7 +267,6 @@ def replay(cfg: Config, broker, arm: str, months: int, out_dir: Path,
             f"eq={r.equity_end:.2f}{' HALT' if r.halted else ''}")
 
     out_dir.mkdir(parents=True, exist_ok=True)
-    tag = f"{arm}-{sessions[0][0]}-to-{sessions[-1][0]}"
     csv_path = out_dir / f"{tag}.csv"
     with open(csv_path, "w", newline="") as fh:
         w = csv.DictWriter(fh, fieldnames=list(asdict(results[0]).keys()))
@@ -266,6 +274,7 @@ def replay(cfg: Config, broker, arm: str, months: int, out_dir: Path,
         for r in results:
             w.writerow(asdict(r))
     summary = summarize(results, arm)
+    (out_dir / f"{tag}.summary.json").write_text(json.dumps(summary, indent=2) + "\n")
     (out_dir / f"{tag}.md").write_text(render(summary, arm, sessions[0][0],
                                                sessions[-1][0], csv_path.name))
     shutil.rmtree(work, ignore_errors=True)

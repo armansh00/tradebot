@@ -393,6 +393,9 @@ def main(argv: list[str] | None = None) -> int:
             return 2
         broker = AlpacaBroker(*cfg.creds(arm), feed=cfg.data.feed)
         summary = replay(cfg, broker, arm, months, _P(cfg.root) / "replays")
+        if "skipped" in summary:
+            print(json.dumps(summary))
+            return 0
         import subprocess
         sha = os.environ.get("GITHUB_SHA") or subprocess.run(
             ["git", "rev-parse", "HEAD"], cwd=cfg.root, capture_output=True,

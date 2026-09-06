@@ -23,8 +23,15 @@ jobs:
     timeout-minutes: 120
     strategy:
       fail-fast: false
+      # One at a time. Both arms append to research_log.jsonl, which is a
+      # hash chain: two jobs starting from the same commit both write a
+      # record whose `prev` is the same hash, and the second one's rebase
+      # conflicts on the same line five times in a row. The first run lost
+      # the fast arm's results exactly that way, ninety seconds after
+      # computing them.
+      max-parallel: 1
       matrix:
-        arm: [fast, movers]
+        arm: [movers, fast]
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5

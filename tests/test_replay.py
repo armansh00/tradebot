@@ -156,3 +156,26 @@ def test_replay_writes_a_row_per_session_and_a_report(cfg, tmp_path):
     assert csvs[0].read_text().count("\n") == 4            # header + 3 rows
     assert "one-shot confirmatory" in mds[0].read_text()
     assert not (out / ".work-fast").exists()                # scratch cleaned up
+
+
+def test_an_already_replayed_window_is_left_alone(cfg, tmp_path):
+    """Same settings, same window, same answer — but a second research-log
+    record for an identical run is noise in a chain that is meant to mean
+    something. The first run lost the fast arm to a push race and the rerun
+    must not double-count the arm that survived."""
+    class CalBroker:
+        def calendar(self, start, end):
+            d = date(2026, 3, 3)
+            o = datetime.combine(d, datetime.min.time(), ET).replace(hour=9, minute=30)
+            c = datetime.combine(d, datetime.min.time(), ET).replace(hour=16)
+            return [(d, o, c)]
+
+        def intraday_5min(self, symbols, day=None):
+            return {s: _bars(day, 100.0) for s in symbols}
+
+    out = tmp_path / "replays"
+    first = replay(cfg, CalBroker(), "fast", 1, out, log=lambda *_: None)
+    assert "skipped" not in first
+    second = replay(cfg, CalBroker(), "fast", 1, out, log=lambda *_: None)
+    assert second == {"skipped": "fast-2026-03-03-to-2026-03-03"}
+    assert len(list(out.glob("fast-*.csv"))) == 1
