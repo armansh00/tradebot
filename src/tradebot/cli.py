@@ -393,8 +393,14 @@ def main(argv: list[str] | None = None) -> int:
             return 2
         broker = AlpacaBroker(*cfg.creds(arm), feed=cfg.data.feed)
         summary = replay(cfg, broker, arm, months, _P(cfg.root) / "replays")
+        import subprocess
+        sha = os.environ.get("GITHUB_SHA") or subprocess.run(
+            ["git", "rev-parse", "HEAD"], cwd=cfg.root, capture_output=True,
+            text=True).stdout.strip() or "unknown"
         record(cfg.root / "research_log.jsonl", type="replay", arm=arm,
                months=months, universe=summary["universe"],
+               code_sha=sha,
+               vault_cutoff=str((cfg.vault_dates or {}).get("research_end")),
                vault_sessions=summary["vault"].get("sessions", 0),
                note="one-shot confirmatory read of the registered rules over "
                     "the vault window; not to be rerun with other settings")
