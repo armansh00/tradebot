@@ -1,0 +1,9 @@
+{
+  "symbol": "SPY",
+  "through": "2026-01-31",
+  "sessions": 2191,
+  "down_days": 973,
+  "p_down": 0.444089,
+  "declared_at": "2026-09-06T06:22:33+00:00",
+  "note": "window ends at the pre-registered research cutoff, before any forecast in this repository was written"
+}

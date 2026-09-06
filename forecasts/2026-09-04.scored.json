@@ -1,0 +1,42 @@
+{
+  "forecast_for": "2026-09-04",
+  "scored_at": "2026-09-06T06:22:34+00:00",
+  "data_source": "alpaca daily bars, fetched 2026-09-06T06:22:34Z",
+  "range": {
+    "predicted_low_pct": 0.9,
+    "predicted_high_pct": 1.35,
+    "realized_pct": 0.5005,
+    "inside": false,
+    "miss_pct": 0.3995,
+    "interval_score": null,
+    "interval_score_note": "needs a declared coverage level; the forecast states none, so it is not computed"
+  },
+  "direction": {
+    "p_down": 0.52,
+    "outcome_down": true,
+    "prior_close": 773.17,
+    "close": 770.19,
+    "return_pct": -0.3854,
+    "brier": 0.2304,
+    "climatology_p_down": 0.444089,
+    "climatology_brier": 0.309037,
+    "skill_note": "no skill score for a single session: with n=1 the reference Brier can sit arbitrarily near zero and the ratio is noise. See aggregate()."
+  },
+  "relative": {
+    "call": "semiconductors_over_energy",
+    "predicted_winner": "SMH",
+    "SMH_pct": 2.6077,
+    "XLE_pct": -0.8666,
+    "spread_pp": 3.4743,
+    "hit": true
+  },
+  "invalidation": {
+    "instrument": "WTI",
+    "condition": ">=",
+    "level": 93.0,
+    "before": "09:30 ET",
+    "adjudicable_from_repo_data": false,
+    "status": "unadjudicable",
+    "reason": "this repository has no source for the named instrument; the condition cannot be settled and is not guessed at"
+  }
+}
