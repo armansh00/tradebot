@@ -54,6 +54,61 @@ class ProbeResult:
                 "severity": self.severity, "detail": self.detail}
 
 
+def account_identity(brokers: dict) -> dict:
+    """Which Alpaca account is each arm actually pointed at?
+
+    On 2026-09-04 the movers arm answered with the slow arm's account number.
+    `_build_brokers` caught the collision and degraded that arm to
+    simulated fills, which kept the day alive and wrote a line saying so; the
+    arm then produced its first trade in the project's history, and that trade
+    was not a broker fill. Nothing downstream knew the difference.
+
+    An arm running a different fill model from the one it is registered under
+    is not that arm. So the collision is graded here, where it can stop the
+    arm rather than quietly change what it means. The first claimant keeps the
+    account in a fixed order — slow, fast, movers — so the verdict does not
+    depend on dictionary ordering.
+
+    No account identifier is written down anywhere. The routing lives in the
+    `accounts:` mapping in config.yaml, and this only checks that the mapping
+    resolves to three different places.
+    """
+    seen, out = {}, {}
+    for arm in ("slow", "fast", "movers"):
+        broker = brokers.get(arm)
+        if broker is None or not hasattr(broker, "account_number"):
+            out[arm] = {"account": None, "conflict": None}
+            continue
+        try:
+            number = str(broker.account_number())
+        except Exception as exc:                      # noqa: BLE001
+            out[arm] = {"account": None, "error": f"{type(exc).__name__}: {exc}"[:160],
+                        "conflict": None}
+            continue
+        out[arm] = {"account": number, "conflict": seen.get(number)}
+        seen.setdefault(number, arm)
+    return out
+
+
+def _identity_result(arm: str, ident: dict) -> list[ProbeResult]:
+    """A collision blocks. Not knowing does not.
+
+    Same principle as the feed check: an arm that cannot report its account is
+    a gap in the record, and a gap is not evidence that two arms are sharing a
+    book. Refusing to trade on a failed lookup would be a different error from
+    the one this check exists to catch.
+    """
+    if not ident or ident.get("account") is None:
+        detail = (ident or {}).get("error", "no account reported")
+        return [ProbeResult(arm, "account_identity", True, ADVISORY,
+                            f"{detail}, not enforced")]
+    other = ident.get("conflict")
+    if other:
+        return [ProbeResult(arm, "account_identity", False, BLOCKING,
+                            f"shares an account with the {other} arm")]
+    return [ProbeResult(arm, "account_identity", True, BLOCKING, "own account")]
+
+
 def _plan(broker) -> dict:
     """What tape is this account actually reading? Advisory, never blocking."""
     if not hasattr(broker, "data_plan_probe"):
@@ -197,6 +252,7 @@ def run_preflight(cfg, brokers: dict, *, ledger=None, notify=_notify) -> Preflig
     trade today. Arms are disabled individually: a dead screener entitlement
     on the movers account is no reason to stop the slow arm."""
     report = PreflightReport()
+    identities = account_identity(brokers)
 
     for arm in ("slow", "fast", "movers"):
         broker = brokers.get(arm)
@@ -207,6 +263,7 @@ def run_preflight(cfg, brokers: dict, *, ledger=None, notify=_notify) -> Preflig
             continue
         results = (probe_slow(cfg, broker) if arm == "slow"
                    else probe_intraday(cfg, broker, arm))
+        results = list(results) + _identity_result(arm, identities.get(arm, {}))
         report.results.extend(results)
         report.plans[arm] = _plan(broker)
         if any(r.disqualifying for r in results):

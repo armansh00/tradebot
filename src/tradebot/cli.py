@@ -2,6 +2,7 @@
 from __future__ import annotations
 import json
 import os
+import re
 import sys
 from .config import load_config
 from .ledger import Ledger
@@ -309,7 +310,26 @@ def main(argv: list[str] | None = None) -> int:
             print(json.dumps(aggregate(scored, clim), indent=2))
             return 0
 
-        day = args[1] if len(args) > 1 else _d.today().isoformat()
+        # With no date, score every frozen forecast that has no verdict yet.
+        # Scoring only "today" would leave a session unscored forever whenever
+        # the scorer did not happen to run the evening it closed — a holiday
+        # weekend, a dropped cron, a day the runner was busy.
+        if len(args) > 1:
+            day = args[1]
+        else:
+            pending = sorted(
+                f.stem for f in fdir.glob("*.json")
+                if re.fullmatch(r"\d{4}-\d{2}-\d{2}", f.stem)
+                and not (fdir / f"{f.stem}.scored.json").exists())
+            if not pending:
+                print("nothing unscored")
+                return 0
+            if len(pending) > 1:
+                rc = 0
+                for d in pending:
+                    rc |= main(["score-forecast", d])
+                return rc
+            day = pending[0]
         src = fdir / f"{day}.json"
         if not src.exists():
             print(f"no frozen forecast for {day}; nothing to score")
