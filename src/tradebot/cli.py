@@ -375,6 +375,32 @@ def main(argv: list[str] | None = None) -> int:
         print(json.dumps(result, indent=2))
         return 0
 
+    if cmd == "replay":
+        # replay <fast|movers> [months]  — past sessions through the live code.
+        try:
+            from dotenv import load_dotenv
+            load_dotenv(cfg.root / ".env")
+        except ImportError:
+            pass
+        from pathlib import Path as _P
+        from .broker import AlpacaBroker
+        from .replay import replay
+        from .research_log import record
+        arm = args[1] if len(args) > 1 else "fast"
+        months = int(args[2]) if len(args) > 2 else 12
+        if arm not in ("fast", "movers"):
+            print("replay: arm must be fast or movers")
+            return 2
+        broker = AlpacaBroker(*cfg.creds(arm), feed=cfg.data.feed)
+        summary = replay(cfg, broker, arm, months, _P(cfg.root) / "replays")
+        record(cfg.root / "research_log.jsonl", type="replay", arm=arm,
+               months=months, universe=summary["universe"],
+               vault_sessions=summary["vault"].get("sessions", 0),
+               note="one-shot confirmatory read of the registered rules over "
+                    "the vault window; not to be rerun with other settings")
+        print(json.dumps(summary, indent=2))
+        return 0
+
     if cmd == "session":
         try:
             from dotenv import load_dotenv
@@ -435,7 +461,7 @@ def main(argv: list[str] | None = None) -> int:
         return 0
 
     print("Usage: python -m tradebot "
-          "[run|run-fast|run-movers|session|preflight|score-forecast|climatology|forecast-report|verify|flatten|sweep|rotate|validate|budget|chat|status|pnl|why SYM|decisions|report|evaluate|compare|kill|resume]")
+          "[run|run-fast|run-movers|session|preflight|replay|score-forecast|climatology|forecast-report|verify|flatten|sweep|rotate|validate|budget|chat|status|pnl|why SYM|decisions|report|evaluate|compare|kill|resume]")
     return 0 if cmd == "help" else 1
 
 

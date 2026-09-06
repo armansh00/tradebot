@@ -92,6 +92,7 @@ DEFAULT_ACCOUNTS = {
 class Config:
     universe: list[str]
     data: DataCfg
+    replay: dict
     strategy: StrategyCfg
     risk: RiskCfg
     evaluation: EvalCfg
@@ -161,6 +162,7 @@ def load_config(root: str | os.PathLike | None = None) -> Config:
     return Config(
         universe=[s.upper() for s in raw["universe"]],
         data=DataCfg(**(raw.get("data") or {})),
+        replay=raw.get("replay") or {},
         strategy=StrategyCfg(**raw["strategy"]),
         risk=RiskCfg(**{"book_cap": 0.0, **raw["risk"]}),
         evaluation=EvalCfg(**raw["evaluation"]),

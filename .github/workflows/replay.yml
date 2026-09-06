@@ -1,0 +1,59 @@
+name: replay
+
+# Past sessions through the production code path, one arm at a time. Touches
+# no account and cannot affect the live experiment. Runs on demand, and once
+# automatically when the replay code itself changes.
+
+on:
+  workflow_dispatch:
+    inputs:
+      months:
+        description: "How many months back"
+        default: "12"
+  push:
+    branches: [main]
+    paths: ["src/tradebot/replay.py", ".github/workflows/replay.yml"]
+
+permissions:
+  contents: write
+
+jobs:
+  replay:
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    strategy:
+      fail-fast: false
+      matrix:
+        arm: [fast, movers]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install -r requirements.txt
+      - name: Replay ${{ matrix.arm }}
+        env:
+          ALPACA_API_KEY: ${{ secrets.ALPACA_API_KEY }}
+          ALPACA_SECRET_KEY: ${{ secrets.ALPACA_SECRET_KEY }}
+          ALPACA_FAST_KEY: ${{ secrets.ALPACA_FAST_KEY }}
+          ALPACA_FAST_SECRET: ${{ secrets.ALPACA_FAST_SECRET }}
+          ALPACA_MOVERS_KEY: ${{ secrets.ALPACA_MOVERS_KEY }}
+          ALPACA_MOVERS_SECRET: ${{ secrets.ALPACA_MOVERS_SECRET }}
+        run: |
+          PYTHONPATH=src python -m tradebot replay ${{ matrix.arm }} ${{ github.event.inputs.months || '12' }} \
+            | tee /tmp/replay.txt
+          { echo "### replay ${{ matrix.arm }}"; echo '```'; tail -60 /tmp/replay.txt; echo '```'; } \
+            >> "$GITHUB_STEP_SUMMARY"
+      - name: Commit the replay
+        run: |
+          git config user.name  tradebot
+          git config user.email tradebot@users.noreply.github.com
+          git add replays research_log.jsonl || true
+          git diff --cached --quiet && exit 0
+          git commit -q -m "replay ${{ matrix.arm }} $(date -u +%F) [skip ci]"
+          for attempt in 1 2 3 4 5; do
+            git pull --rebase -q && git push -q && exit 0
+            sleep $((attempt * 7))
+          done
+          echo "could not publish the replay after 5 attempts" >&2
+          exit 1

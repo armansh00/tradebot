@@ -215,7 +215,25 @@ class AlpacaBroker:
             out[sym] = pd.DataFrame({
                 "d": pd.to_datetime(sub["timestamp"]).dt.tz_convert(ET).dt.date,
                 "o": sub["open"].to_numpy(), "h": sub["high"].to_numpy(),
-                "l": sub["low"].to_numpy(), "c": sub["close"].to_numpy()})
+                "l": sub["low"].to_numpy(), "c": sub["close"].to_numpy(),
+                "v": sub["volume"].to_numpy() if "volume" in sub else 0})
+        return out
+
+    def calendar(self, start, end) -> list:
+        """(date, open_et, close_et) for every session in [start, end].
+
+        The replay needs the real close for each past day — half days
+        included — for the same reason the live arm does: a flatten time
+        derived from a 16:00 constant is wrong three sessions a year.
+        """
+        from datetime import datetime
+        from alpaca.trading.requests import GetCalendarRequest
+        days = self._trading.get_calendar(GetCalendarRequest(start=start, end=end))
+        out = []
+        for d in days:
+            o = d.open if isinstance(d.open, datetime) else datetime.combine(d.date, d.open)
+            c = d.close if isinstance(d.close, datetime) else datetime.combine(d.date, d.close)
+            out.append((d.date, o.replace(tzinfo=ET), c.replace(tzinfo=ET)))
         return out
 
     def most_actives(self, n: int) -> list[str]:

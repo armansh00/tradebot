@@ -108,6 +108,19 @@ movers_evaluation:
 # Threshold sweep — a REPLAY, not extra live arms. The grid is pre-registered
 # here so the analysis cannot be tuned after seeing results. See
 # DESIGN-threshold-sweep.md for why picking the best of k arms fails.
+# Historical replay of the intraday arms through the production code path.
+# The live movers arm screens Alpaca's most-actives list; there is no
+# historical screener, so the replay ranks this fixed candidate list by
+# prior-day dollar volume instead. Declared once. It cannot see a name that
+# became the most active stock in America overnight unless it is on the list,
+# which is why every movers replay row is labeled proxy.
+replay:
+  movers_candidates: [NVDA, TSLA, AAPL, AMD, AMZN, MSFT, META, GOOGL, PLTR,
+                      INTC, F, SOFI, NIO, BAC, AAL, CCL, LCID, RIVN, PFE, T,
+                      MARA, COIN, SMCI, MU, AVGO, HOOD, UBER, SNAP, WBD, AMC,
+                      GME, RIOT, XOM, WFC, C, VZ, KO, DIS, BABA, SPY, QQQ,
+                      IWM, SQQQ, TQQQ, SOXL, SOXS]
+
 sweep:
   thresholds_pct: [0.0, 0.25, 0.5, 1.0, 1.5, 2.0, 3.0]
   lookback_days: 30
