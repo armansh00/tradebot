@@ -376,39 +376,62 @@ def main(argv: list[str] | None = None) -> int:
         return 0
 
     if cmd == "replay":
-        # replay <fast|movers> [months]  — past sessions through the live code.
+        # replay <fast|movers> [months | START END]  — past sessions through
+        # the live code. Explicit dates are the honest form for anything that
+        # has to reproduce an earlier window.
         try:
             from dotenv import load_dotenv
             load_dotenv(cfg.root / ".env")
         except ImportError:
             pass
+        import subprocess
+        from datetime import date as _date
         from pathlib import Path as _P
         from .broker import AlpacaBroker
-        from .replay import replay
+        from .replay import ReplayRefused, replay
         from .research_log import record
         arm = args[1] if len(args) > 1 else "fast"
-        months = int(args[2]) if len(args) > 2 else 12
         if arm not in ("fast", "movers"):
             print("replay: arm must be fast or movers")
             return 2
-        broker = AlpacaBroker(*cfg.creds(arm), feed=cfg.data.feed)
-        summary = replay(cfg, broker, arm, months, _P(cfg.root) / "replays")
-        if "skipped" in summary:
-            print(json.dumps(summary))
-            return 0
-        import subprocess
+        months, start, end = None, None, None
+        rest = args[2:]
+        env_start, env_end = os.environ.get("REPLAY_START"), os.environ.get("REPLAY_END")
+        if len(rest) >= 2:
+            start, end = _date.fromisoformat(rest[0]), _date.fromisoformat(rest[1])
+        elif env_start and env_end:
+            start, end = _date.fromisoformat(env_start), _date.fromisoformat(env_end)
+        elif rest:
+            months = int(rest[0])
+        else:
+            months = 12
         sha = os.environ.get("GITHUB_SHA") or subprocess.run(
             ["git", "rev-parse", "HEAD"], cwd=cfg.root, capture_output=True,
             text=True).stdout.strip() or "unknown"
+        reason = os.environ.get("TRADEBOT_RERUN_REASON") or None
+        persist = None
+        if os.environ.get("TRADEBOT_AUTOCOMMIT") == "1":
+            script = cfg.root / "scripts" / "commit_research.sh"
+            persist = lambda: subprocess.run(["bash", str(script)], cwd=cfg.root, check=True)
+        broker = AlpacaBroker(*cfg.creds(arm), feed=cfg.data.feed)
+        try:
+            summary = replay(cfg, broker, arm, months, _P(cfg.root) / "replays",
+                             start=start, end=end, code_sha=sha,
+                             rerun_reason=reason, persist=persist)
+        except ReplayRefused as exc:
+            print(f"REPLAY_REFUSED: {exc}")
+            return 3
         record(cfg.root / "research_log.jsonl", type="replay", arm=arm,
-               months=months, universe=summary["universe"],
-               code_sha=sha,
-               window=summary.get("window"),
-               rerun_reason=os.environ.get("TRADEBOT_RERUN_REASON") or None,
+               window=summary["window"],
+               window_start=summary["window_start"], window_end=summary["window_end"],
+               claim=summary["claim"], code_sha=sha, rerun_reason=reason,
+               universe=summary["universe"],
                vault_cutoff=str((cfg.vault_dates or {}).get("research_end")),
                vault_sessions=summary["vault"].get("sessions", 0),
                note="one-shot confirmatory read of the registered rules over "
                     "the vault window; not to be rerun with other settings")
+        if persist:
+            persist()
         print(json.dumps(summary, indent=2))
         return 0
 

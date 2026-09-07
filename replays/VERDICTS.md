@@ -41,15 +41,27 @@ read on its own.
 
 First computation completed in run 34020674300 on 2026-09-06 and was lost
 to a research-log push race before it could be committed. The rerun is
-labeled `rerun_reason: persistence failure after completed computation` in
-the research log so the chain does not pretend it was the first physical
-computation.
+pinned to the sessions the lost run asked for — 2025-09-05 to 2026-09-04 —
+because a window derived from today's date is a different window tomorrow,
+and it is labeled `rerun_reason: persistence failure after completed
+computation` in the research log so the chain does not pretend it was the
+first physical computation.
+
+Four gaps found in review before the rerun, all closed with tests:
+the window was derived from the execution date; the guard matched labels
+rather than dates, so a shifted window could reuse spent sessions; a log
+line that could not be parsed was skipped rather than refused; and
+consumption was recorded after computation, so a second crash would have
+left no trace. Consumption is now claimed in the chain and pushed before a
+single bar is fetched.
 
 ## Architecture defect, identified 2026-09-06
 
 Two parallel jobs appended to `research_log.jsonl`, a hash chain, from the
 same starting commit. Each record chained to the same previous hash and the
 second job's rebase could not resolve it. Serializing the replay jobs fixes
-today's problem. The class fix is single-writer logging: workers emit
-independent result artifacts; one coordinator appends them to the chain in
-sequence. Not built yet.
+today's problem within one workflow run. It does not protect separate
+workflow runs or other writers to the chain — the session and forecast
+workflows also commit — and the class fix is single-writer logging:
+workers emit independent result artifacts; one coordinator appends them to
+the chain in sequence. Not built yet.

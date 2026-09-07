@@ -40,6 +40,7 @@ import pandas as pd
 from .config import Config, load_config
 from .fastarm import ET, run_fast_once
 from .ledger import Ledger
+from .research_log import _rows, record, verify_chain
 
 
 # ------------------------------------------------------------------ the shim
@@ -202,23 +203,74 @@ def movers_proxy(daily: dict, day, candidates: list[str], n: int,
 
 # ------------------------------------------------------------------ the run
 
-def window_consumed(cfg: Config, arm: str, tag: str) -> bool:
-    """Has the research log already recorded a replay of this arm over this
-    window? The artifact and the log entry are separate facts — a lost
-    artifact must not re-open a window the chain says was consumed."""
+class ReplayRefused(RuntimeError):
+    """The window is spent, or the record cannot say whether it is."""
+
+
+def _overlaps(a0, a1, b0, b1) -> bool:
+    return not (a1 < b0 or b1 < a0)
+
+
+def consumed_by(cfg: Config, arm: str, start, end) -> dict | None:
+    """The research-log row that already spent any part of [start, end] for
+    this arm, or None.
+
+    Fails closed. A line that cannot be parsed, or a chain that does not
+    verify, is not "no record" — it is a record we cannot read, and a guard
+    that waves a replay through on the strength of a log it could not read
+    is not a guard. Overlap is by date, not by label: a window shifted by one
+    session is a different label and the same spent data.
+    """
     path = cfg.root / "research_log.jsonl"
     if not path.exists():
-        return False
-    for line in path.read_text().splitlines():
-        try:
-            row = json.loads(line)
-        except json.JSONDecodeError:
+        return None
+    intact, where = verify_chain(path)
+    if not intact:
+        raise ReplayRefused(f"research log does not verify at row {where}; "
+                            "refusing to decide whether the window is spent")
+    for row in _rows(path):
+        if row.get("type") not in ("replay", "replay_claim") or row.get("arm") != arm:
             continue
-        if row.get("type") == "replay" and row.get("arm") == arm and (
-                row.get("window") == tag
-                or (row.get("window") is None and row.get("months") is not None)):
-            return True
-    return False
+        ws, we = row.get("window_start"), row.get("window_end")
+        if ws is None or we is None:
+            # Older rows recorded only a label or a month count. Treat the
+            # arm's whole history as spent rather than guess at its dates.
+            return row
+        ws, we = _date.fromisoformat(str(ws)), _date.fromisoformat(str(we))
+        if _overlaps(ws, we, start, end):
+            return row
+    return None
+
+
+def claim_window(cfg: Config, arm: str, start, end, code_sha: str,
+                 rerun_reason: str | None = None, persist=None) -> str:
+    """Spend the window BEFORE computing, and get that fact off the machine.
+
+    The lost fast run computed, then died before its record was written, and
+    the chain had no idea anything had happened. Consumption is now written
+    first: a `replay_claim` row goes into the log, `persist` (the commit hook
+    in CI) is called, and only then does the computation start. A crash after
+    this point leaves a claim with no result, which a later run will see.
+
+    A rerun is allowed over a claim that has no result, and only with a
+    stated reason — never over a result.
+    """
+    prior = consumed_by(cfg, arm, start, end)
+    if prior is not None:
+        if prior.get("type") == "replay" or not rerun_reason:
+            what = "already has a result" if prior.get("type") == "replay" \
+                else "is claimed and no rerun reason was given"
+            raise ReplayRefused(
+                f"{arm} {start}..{end} overlaps a window that {what}: "
+                f"{prior.get('window_start')}..{prior.get('window_end')} "
+                f"(row {prior.get('hash', '?')[:12]})")
+    h = record(cfg.root / "research_log.jsonl", type="replay_claim", arm=arm,
+               window_start=str(start), window_end=str(end), code_sha=code_sha,
+               rerun_reason=rerun_reason,
+               supersedes=prior.get("hash") if prior else None)
+    if persist:
+        persist()
+    return h
 
 
 def _period(day, cfg: Config) -> str:
@@ -227,24 +279,33 @@ def _period(day, cfg: Config) -> str:
     return "pre_vault" if day <= cut else "vault"
 
 
-def replay(cfg: Config, broker, arm: str, months: int, out_dir: Path,
-           log=print) -> dict:
-    """Replay `arm` over the last `months` of sessions. Writes a CSV of one row
-    per session and a markdown summary. Returns the summary."""
+def replay(cfg: Config, broker, arm: str, months: int | None, out_dir: Path,
+           log=print, start=None, end=None, code_sha: str = "unknown",
+           rerun_reason: str | None = None, persist=None) -> dict:
+    """Replay `arm` over an explicit [start, end], or the last `months`.
+
+    Explicit dates are the honest form: a window derived from today's date
+    is a different window tomorrow, and a rerun that is supposed to
+    reproduce a lost computation has to ask for the same sessions the lost
+    one did. `months` is kept for exploration, where drift does not matter.
+    """
     today = datetime.now(ET).date()
-    start = today - timedelta(days=int(months * 30.5))
-    sessions = [s for s in broker.calendar(start, today) if s[0] < today]
+    if start is None or end is None:
+        if not months:
+            raise ValueError("give start and end, or months")
+        start = today - timedelta(days=int(months * 30.5))
+        end = today - timedelta(days=1)
+    sessions = [s for s in broker.calendar(start, end) if start <= s[0] <= end
+                and s[0] < today]
     if not sessions:
         raise RuntimeError("no sessions in range")
-    tag = f"{arm}-{sessions[0][0]}-to-{sessions[-1][0]}"
-    if (out_dir / f"{tag}.md").exists() or window_consumed(cfg, arm, tag):
-        # Already done for this exact window. Re-running is the same
-        # computation with the same answer, and the one-shot rule is about
-        # not re-running with *different* settings — but a second research
-        # record for an identical run is noise in a chain that is supposed
-        # to mean something.
-        log(f"{tag}: already replayed, leaving it alone")
-        return {"skipped": tag}
+    first, last = sessions[0][0], sessions[-1][0]
+    tag = f"{arm}-{first}-to-{last}"
+
+    # Spend the window first. Refuses on overlap, on a claim without a
+    # reason, or on a log it cannot read. Persisted before any computation.
+    claim = claim_window(cfg, arm, first, last, code_sha, rerun_reason, persist)
+    log(f"{tag}: window claimed ({claim[:12]})")
 
     # An isolated config root so the replay's ledgers and state never touch
     # the live ones. Same config.yaml, different directory.
@@ -294,6 +355,8 @@ def replay(cfg: Config, broker, arm: str, months: int, out_dir: Path,
             w.writerow(asdict(r))
     summary = summarize(results, arm)
     summary["window"] = tag
+    summary["window_start"], summary["window_end"] = str(first), str(last)
+    summary["claim"] = claim
     (out_dir / f"{tag}.summary.json").write_text(json.dumps(summary, indent=2) + "\n")
     (out_dir / f"{tag}.md").write_text(render(summary, arm, sessions[0][0],
                                                sessions[-1][0], csv_path.name))

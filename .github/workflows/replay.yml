@@ -42,8 +42,15 @@ jobs:
         env:
           # The fast arm's first computation completed on 2026-09-06 and was
           # lost to a research-log push race before it could be committed.
-          # This is a rerun and the record says so. Remove after it lands.
+          # This is a rerun, pinned to the sessions the lost run asked for,
+          # and the record says so. Remove all three after it lands.
           TRADEBOT_RERUN_REASON: "persistence failure after completed computation (run 34020674300)"
+          REPLAY_START: "2025-09-05"
+          REPLAY_END: "2026-09-04"
+          # The window is claimed in the research chain and pushed BEFORE
+          # any computation. A crash after that point leaves a claim a later
+          # run can see.
+          TRADEBOT_AUTOCOMMIT: "1"
           ALPACA_API_KEY: ${{ secrets.ALPACA_API_KEY }}
           ALPACA_SECRET_KEY: ${{ secrets.ALPACA_SECRET_KEY }}
           ALPACA_FAST_KEY: ${{ secrets.ALPACA_FAST_KEY }}
@@ -51,11 +58,15 @@ jobs:
           ALPACA_MOVERS_KEY: ${{ secrets.ALPACA_MOVERS_KEY }}
           ALPACA_MOVERS_SECRET: ${{ secrets.ALPACA_MOVERS_SECRET }}
         run: |
-          PYTHONPATH=src python -m tradebot replay ${{ matrix.arm }} ${{ github.event.inputs.months || '12' }} \
-            | tee /tmp/replay.txt
-          { echo "### replay ${{ matrix.arm }}"; echo '```'; tail -60 /tmp/replay.txt; echo '```'; } \
+          set +e
+          PYTHONPATH=src python -m tradebot replay ${{ matrix.arm }} | tee /tmp/replay.txt
+          rc=${PIPESTATUS[0]}
+          { echo "### replay ${{ matrix.arm }} (exit $rc)"; echo '```'; tail -60 /tmp/replay.txt; echo '```'; } \
             >> "$GITHUB_STEP_SUMMARY"
-      - name: Commit the replay
+          # 3 = refused (window spent). That is the guard working, not a failure.
+          [ "$rc" = "0" ] || [ "$rc" = "3" ]
+      - name: Final sweep (anything the in-process persist missed)
+        if: always()
         run: |
           git config user.name  tradebot
           git config user.email tradebot@users.noreply.github.com
