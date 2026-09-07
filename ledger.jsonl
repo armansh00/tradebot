@@ -233,3 +233,4 @@
 {"ts": "2026-09-07T16:25:45+00:00", "type": "data_plan", "arm": "slow", "symbol": "SPY", "asof": "2026-09-07T16:25:44.513571+00:00", "sip_recent": "ok", "sip_delayed": "ok", "iex": "ok", "effective_feed": "sip"}
 {"ts": "2026-09-07T16:25:45+00:00", "type": "data_plan", "arm": "fast", "symbol": "SPY", "asof": "2026-09-07T16:25:45.000824+00:00", "sip_recent": "ok", "sip_delayed": "ok", "iex": "ok", "effective_feed": "sip"}
 {"ts": "2026-09-07T16:25:45+00:00", "type": "data_plan", "arm": "movers", "symbol": "SPY", "asof": "2026-09-07T16:25:45.638942+00:00", "sip_recent": "ok", "sip_delayed": "ok", "iex": "ok", "effective_feed": "sip"}
+{"ts": "2026-09-07T18:22:32+00:00", "type": "run_skipped", "reason": "market_closed"}
