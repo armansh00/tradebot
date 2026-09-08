@@ -3,13 +3,14 @@
   "positions": {},
   "or_low": {
     "TSLA": 355.75,
-    "AMZN": 254.95
+    "AMZN": 254.95,
+    "META": 615.0505
   },
-  "cost_accrued": 0.025065,
+  "cost_accrued": 0.03757,
   "high_water_mark": 50.2875,
   "day": "2026-09-08",
   "day_start_equity": 50.0,
-  "trades_today": 2,
+  "trades_today": 3,
   "stopped_today": false,
   "halted": false,
   "day_equity_set": "2026-09-08"
