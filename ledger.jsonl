@@ -254,3 +254,4 @@
 {"ts": "2026-09-08T13:32:00+00:00", "type": "run", "equity": 50.22, "positions": {"IWM": 23.851937, "QQQ": 23.961239}, "day_change_pct": 0.1, "n_orders": 0}
 {"ts": "2026-09-08T13:32:00+00:00", "type": "tick", "kind": "slow", "scheduled": "2026-09-08T13:32:00+00:00", "status": {"slow": "ok"}}
 {"ts": "2026-09-08T14:05:00+00:00", "type": "tick", "kind": "fast", "scheduled": "2026-09-08T14:05:00+00:00", "status": {"fast": "ok", "movers": "ok"}}
+{"ts": "2026-09-08T14:35:00+00:00", "type": "tick", "kind": "fast", "scheduled": "2026-09-08T14:35:00+00:00", "status": {"fast": "ok", "movers": "ok"}}
