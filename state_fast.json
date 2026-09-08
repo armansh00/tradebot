@@ -2,11 +2,9 @@
   "cash": 50.0,
   "positions": {},
   "or_low": {
-    "TSLA": 355.75,
-    "AMZN": 254.95,
-    "META": 615.0505
+    "AMZN": 254.95
   },
-  "cost_accrued": 0.03757,
+  "cost_accrued": 0.062476,
   "high_water_mark": 50.2875,
   "day": "2026-09-08",
   "day_start_equity": 50.0,
