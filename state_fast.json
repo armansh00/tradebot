@@ -3,13 +3,14 @@
   "positions": {},
   "or_low": {
     "AMZN": 254.95,
-    "QQQ": 715.48
+    "QQQ": 715.48,
+    "META": 638.56
   },
-  "cost_accrued": 0.074908,
+  "cost_accrued": 0.087337,
   "high_water_mark": 50.2875,
   "day": "2026-09-09",
   "day_start_equity": 49.7275,
-  "trades_today": 1,
+  "trades_today": 2,
   "stopped_today": false,
   "halted": false,
   "day_equity_set": "2026-09-09"
