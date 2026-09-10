@@ -5,11 +5,11 @@
     "AMZN": 249.58,
     "MSFT": 486.0
   },
-  "cost_accrued": 0.161553,
+  "cost_accrued": 0.17388,
   "high_water_mark": 50.2875,
   "day": "2026-09-10",
   "day_start_equity": 49.5655,
-  "trades_today": 3,
+  "trades_today": 4,
   "stopped_today": false,
   "halted": false,
   "day_equity_set": "2026-09-10"
