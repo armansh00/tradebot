@@ -134,3 +134,5 @@
 {"ts": "2026-09-10T18:05:00+00:00", "type": "fast_run", "arm": "movers", "equity": 50.1944, "day": "2026-09-10", "session_source": "exchange_calendar", "session_close": "2026-09-10T16:00:00-04:00", "cost_accrued": 0.2656, "day_pnl_pct": 0.0, "positions": {}, "cash": 50.46}
 {"ts": "2026-09-10T18:35:00+00:00", "type": "universe", "arm": "movers", "day": "2026-09-10", "symbols": ["IPDN", "SNYR", "AEON", "SLXN", "TNON", "SPCX", "GPRO", "NVD", "NVDA", "INTC"]}
 {"ts": "2026-09-10T19:05:00+00:00", "type": "universe", "arm": "movers", "day": "2026-09-10", "symbols": ["IPDN", "SNYR", "AEON", "SLXN", "TNON", "SPCX", "GPRO", "NVDA", "NVD", "INTC"]}
+{"ts": "2026-09-10T19:35:00+00:00", "type": "universe", "arm": "movers", "day": "2026-09-10", "symbols": ["IPDN", "SNYR", "AEON", "SLXN", "TNON", "SPCX", "GPRO", "NVDA", "NVD", "INTC"]}
+{"ts": "2026-09-10T19:35:00+00:00", "type": "fast_run", "arm": "movers", "equity": 50.1944, "day": "2026-09-10", "session_source": "exchange_calendar", "session_close": "2026-09-10T16:00:00-04:00", "cost_accrued": 0.2656, "day_pnl_pct": 0.0, "positions": {}, "cash": 50.46}
