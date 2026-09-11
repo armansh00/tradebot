@@ -3,13 +3,14 @@
   "positions": {},
   "or_low": {
     "AMZN": 249.58,
-    "MSFT": 486.0
+    "MSFT": 486.0,
+    "QQQ": 713.93
   },
-  "cost_accrued": 0.186173,
+  "cost_accrued": 0.198431,
   "high_water_mark": 50.2875,
   "day": "2026-09-11",
   "day_start_equity": 49.0638,
-  "trades_today": 0,
+  "trades_today": 1,
   "stopped_today": false,
   "halted": false,
   "day_equity_set": "2026-09-11"
