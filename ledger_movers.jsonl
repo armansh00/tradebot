@@ -146,3 +146,4 @@
 {"ts": "2026-09-11T14:35:01+00:00", "type": "fast_run", "arm": "movers", "equity": 50.1944, "day": "2026-09-11", "session_source": "exchange_calendar", "session_close": "2026-09-11T16:00:00-04:00", "cost_accrued": 0.2656, "day_pnl_pct": 0.0, "positions": {}, "cash": 50.46}
 {"ts": "2026-09-11T15:35:00+00:00", "type": "universe", "arm": "movers", "day": "2026-09-11", "symbols": ["TRUG", "SURG", "ACVA", "BDRX", "TNON", "ETHA", "ORCL", "OPTT", "SMR", "SNXX"]}
 {"ts": "2026-09-11T16:05:00+00:00", "type": "universe", "arm": "movers", "day": "2026-09-11", "symbols": ["TRUG", "SURG", "BDRX", "ACVA", "TNON", "ETHA", "ORCL", "SMR", "OPTT", "SNXX"]}
+{"ts": "2026-09-11T17:05:43+00:00", "type": "universe", "arm": "movers", "day": "2026-09-11", "symbols": ["TRUG", "SURG", "BDRX", "ACVA", "TNON", "ETHA", "SMR", "BITO", "INTC", "ORCL"]}
