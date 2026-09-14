@@ -182,3 +182,4 @@
 {"ts": "2026-09-14T17:05:00+00:00", "type": "universe", "arm": "movers", "day": "2026-09-14", "symbols": ["UZX", "NCT", "SOAR", "LHSW", "NOK", "NVDA", "FTFT", "SOXL", "INTC", "BITO"]}
 {"ts": "2026-09-14T17:35:01+00:00", "type": "universe", "arm": "movers", "day": "2026-09-14", "symbols": ["UZX", "NCT", "SOAR", "LHSW", "NOK", "FTFT", "NVDA", "SOXL", "BITO", "INTC"]}
 {"ts": "2026-09-14T18:05:00+00:00", "type": "universe", "arm": "movers", "day": "2026-09-14", "symbols": ["UZX", "NCT", "SOAR", "LHSW", "FTFT", "NOK", "NVDA", "SOXL", "BITO", "INTC"]}
+{"ts": "2026-09-14T18:35:01+00:00", "type": "universe", "arm": "movers", "day": "2026-09-14", "symbols": ["UZX", "NCT", "SOAR", "LHSW", "FTFT", "NOK", "NVDA", "SOXL", "BITO", "NVD"]}
