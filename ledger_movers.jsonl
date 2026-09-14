@@ -184,3 +184,5 @@
 {"ts": "2026-09-14T18:05:00+00:00", "type": "universe", "arm": "movers", "day": "2026-09-14", "symbols": ["UZX", "NCT", "SOAR", "LHSW", "FTFT", "NOK", "NVDA", "SOXL", "BITO", "INTC"]}
 {"ts": "2026-09-14T18:35:01+00:00", "type": "universe", "arm": "movers", "day": "2026-09-14", "symbols": ["UZX", "NCT", "SOAR", "LHSW", "FTFT", "NOK", "NVDA", "SOXL", "BITO", "NVD"]}
 {"ts": "2026-09-14T19:05:00+00:00", "type": "universe", "arm": "movers", "day": "2026-09-14", "symbols": ["NCT", "UZX", "SOAR", "LHSW", "FTFT", "NOK", "NVDA", "SOXL", "BITO", "CTNT"]}
+{"ts": "2026-09-14T19:58:00+00:00", "type": "universe", "arm": "movers", "day": "2026-09-14", "symbols": ["NCT", "UZX", "SOAR", "FTFT", "LHSW", "NOK", "NVDA", "SOXL", "CTNT", "BITO"]}
+{"ts": "2026-09-14T19:58:01+00:00", "type": "fast_run", "arm": "movers", "equity": 50.1544, "day": "2026-09-14", "session_source": "exchange_calendar", "session_close": "2026-09-14T16:00:00-04:00", "cost_accrued": 0.2656, "day_pnl_pct": -0.08, "positions": {}, "cash": 50.42}
