@@ -225,3 +225,4 @@
 {"ts": "2026-09-16T17:35:02+00:00", "type": "universe", "arm": "movers", "day": "2026-09-16", "symbols": ["SNYR", "DLXY", "QCLS", "MEDS", "PDSB", "BENF", "DVLT", "RETO", "ZBAO", "ZTG"]}
 {"ts": "2026-09-16T18:05:00+00:00", "type": "universe", "arm": "movers", "day": "2026-09-16", "symbols": ["SNYR", "DLXY", "QCLS", "MEDS", "PDSB", "BENF", "DVLT", "RETO", "ZBAO", "ZTG"]}
 {"ts": "2026-09-16T18:35:00+00:00", "type": "universe", "arm": "movers", "day": "2026-09-16", "symbols": ["SNYR", "QCLS", "DLXY", "MEDS", "PDSB", "BENF", "DVLT", "RETO", "ZBAO", "ZTG"]}
+{"ts": "2026-09-16T19:05:00+00:00", "type": "universe", "arm": "movers", "day": "2026-09-16", "symbols": ["SNYR", "QCLS", "DLXY", "MEDS", "PDSB", "BENF", "DVLT", "RETO", "ZBAO", "AAL"]}
