@@ -75,8 +75,13 @@ def build_schedule(open_utc: datetime, close_utc: datetime, cfg: Config) -> list
     return sorted(ticks, key=lambda x: (x.at, x.kind))
 
 
-def _ticks_in(lines) -> set[str]:
-    """Scheduled timestamps of ticks that already have a verdict recorded.
+def _ticks_in(lines, own_run: str | None = None) -> set[str]:
+    """Scheduled timestamps of ticks that are spoken for.
+
+    A verdict (`tick`, `tick_error`) is spoken for. So is a `tick_claim` from
+    any run other than this one: the claim is the lock, and it is written and
+    pushed before the tick executes precisely so that a second process waking
+    at the same minute sees it before doing the same work.
 
     An errored tick counts as done: it was attempted at its scheduled moment,
     and a second process re-running it minutes later would be executing the
@@ -88,12 +93,16 @@ def _ticks_in(lines) -> set[str]:
             event = json.loads(line)
         except json.JSONDecodeError:
             continue                                  # fail closed, not loud
-        if event.get("type") in ("tick", "tick_error") and event.get("scheduled"):
+        if not event.get("scheduled"):
+            continue
+        if event.get("type") in ("tick", "tick_error"):
+            done.add(event["scheduled"])
+        elif event.get("type") == "tick_claim" and event.get("run") != own_run:
             done.add(event["scheduled"])
     return done
 
 
-def _completed_ticks(cfg: Config, peek=None) -> set[str]:
+def _completed_ticks(cfg: Config, peek=None, own_run: str | None = None) -> set[str]:
     """Which scheduled ticks already ran today, by scheduled timestamp.
 
     Two readers. The local ledger answers for this process — leg 2 resuming
@@ -111,10 +120,10 @@ def _completed_ticks(cfg: Config, peek=None) -> set[str]:
     """
     done = set()
     if cfg.ledger_path.exists():
-        done |= _ticks_in(cfg.ledger_path.read_text().splitlines())
+        done |= _ticks_in(cfg.ledger_path.read_text().splitlines(), own_run)
     if peek:
         try:
-            done |= _ticks_in(peek() or [])
+            done |= _ticks_in(peek() or [], own_run)
         except Exception:                             # noqa: BLE001
             pass                                      # a blind spare beats none
     return done
@@ -143,8 +152,19 @@ def _run_tick(cfg: Config, brokers, kind: str, disabled=frozenset()) -> dict:
     from .fastarm import run_fast_once
     out = {}
     for arm in ("fast", "movers"):
-        out[arm] = ({"status": "arm_disabled"} if arm in disabled
-                    else run_fast_once(cfg, brokers[arm], arm=arm))
+        if arm in disabled:
+            out[arm] = {"status": "arm_disabled"}
+            continue
+        # One arm's failure is that arm's failure. For a week a screener pick
+        # the venue would not trade fractionally raised inside movers and the
+        # whole tick was recorded as an error — after fast had already run
+        # and traded. The record said "tick failed"; the truth was "movers
+        # failed, fast fine".
+        try:
+            out[arm] = run_fast_once(cfg, brokers[arm], arm=arm)
+        except Exception as exc:                      # noqa: BLE001
+            out[arm] = {"status": "error", "error": f"{type(exc).__name__}: {exc}"[:300],
+                        "traceback": traceback.format_exc()[-600:]}
     return out
 
 
@@ -185,6 +205,7 @@ def run_session(
     now = now or (lambda: datetime.now(timezone.utc))
     sleep = sleep or time.sleep
     ledger = Ledger(cfg.ledger_path)
+    run_id = os.environ.get("GITHUB_RUN_ID") or f"local-{os.getpid()}"
 
     started = now()
     if deadline_minutes is None:
@@ -221,7 +242,7 @@ def run_session(
         return {"status": "preflight_fail", "ran": 0, "missed": 0, "resumed": 0,
                 "disabled": sorted(disabled)}
 
-    done = _completed_ticks(cfg, peek)
+    done = _completed_ticks(cfg, peek, run_id)
     ran = missed = resumed = 0
     for tick in schedule:
         t = now()
@@ -274,16 +295,38 @@ def run_session(
         # residual race is caught downstream by broker-enforced idempotency:
         # every intraday order carries a deterministic client_order_id and the
         # slow arm refuses a second run on the same date.
-        done |= _completed_ticks(cfg, peek)
+        done |= _completed_ticks(cfg, peek, run_id)
         if tick.at.isoformat() in done:
             resumed += 1
             continue
+
+        # Claim it, and get the claim off this machine before doing the work.
+        # A git push is atomic: whoever lands the claim first owns the tick.
+        # Two processes waking at the same minute used to both execute; the
+        # broker refused the second order (client_order_id) but the second
+        # process's ledger lines then lost a rebase against the first's, and
+        # real fills vanished from the record. Now the loser sees the claim.
+        ledger.write("tick_claim", kind=tick.kind, scheduled=tick.at.isoformat(),
+                     run=run_id, at=now().isoformat())
+        if on_tick_done and not _persist(on_tick_done, sleep, attempts=2):
+            done |= _completed_ticks(cfg, peek, run_id)
+            if tick.at.isoformat() in done:
+                ledger.write("tick_claim_lost", kind=tick.kind,
+                             scheduled=tick.at.isoformat(), run=run_id)
+                resumed += 1
+                continue
+            # Could not publish and nobody else has it: trade anyway. A day
+            # with no process willing to trade is worse than a duplicate the
+            # broker will refuse and a ledger line union-merge will keep.
 
         try:
             result = _run_tick(cfg, broker, tick.kind, disabled)
             ran += 1
             ledger.write("tick", kind=tick.kind, scheduled=tick.at.isoformat(),
-                         status={k: v.get("status") for k, v in result.items()})
+                         run=run_id,
+                         status={k: v.get("status") for k, v in result.items()},
+                         errors={k: v.get("error") for k, v in result.items()
+                                 if v.get("status") == "error"} or None)
         except Exception as exc:                      # one bad tick != a lost day
             missed += 1
             ledger.write("tick_error", kind=tick.kind, scheduled=tick.at.isoformat(),

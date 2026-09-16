@@ -159,7 +159,8 @@ def test_commit_hook_fires_after_every_tick(cfg, patched):
     hits = []
     result = run_session(cfg, SessionFake(), now=now, sleep=sleep,
                          deadline_minutes=600, on_tick_done=lambda: hits.append(1))
-    assert len(hits) == result["ran"]
+    # Once to publish the claim before the tick, once to publish the result.
+    assert len(hits) == 2 * result["ran"]
 
 
 def test_leg_two_resumes_a_handoff_without_inventing_missed_ticks(cfg, patched):

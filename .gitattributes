@@ -1,0 +1,14 @@
+# Append-only ledgers: two processes appending in the same minute must both
+# survive a rebase. Union keeps every line from both sides. Each line carries
+# its own timestamp and run id, so order across writers does not matter.
+#
+# For a week the loser of that rebase lost its lines, and real fills vanished
+# from the record while the broker quietly held the positions.
+ledger.jsonl        merge=union
+ledger_fast.jsonl   merge=union
+ledger_movers.jsonl merge=union
+
+# NOT the research chain. Interleaving two writers' rows breaks the hash
+# chain by construction; a conflict there must fail loudly, and the class fix
+# is a single writer. Union would hide exactly the defect it exists to catch.
+research_log.jsonl  -merge
