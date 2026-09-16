@@ -40,6 +40,18 @@ on:
     - cron: "41 11 * * 1-5"
     - cron: "7 13 * * 1-5"     # 23 min before the open
     - cron: "34 13 * * 1-5"    # just after — still saves the intraday ticks
+    # Afternoon starts. A runner is capped at six hours, so nothing launched
+    # before 14:00 UTC can be alive at the 20:00 close — the early starts hand
+    # off down a chain of legs, and each handoff waits for a fresh runner,
+    # which in the first live week took 60 to 130 minutes and cost eleven
+    # ticks, nearly all of them at 14:05, 14:35 and 15:05. These four start
+    # with the open already behind them and a full budget in front, so the
+    # afternoon and the close are covered by processes that did not have to
+    # wait in a queue to exist. Tick claims keep the overlap to one execution.
+    - cron: "52 13 * * 1-5"
+    - cron: "21 14 * * 1-5"
+    - cron: "49 14 * * 1-5"
+    - cron: "18 15 * * 1-5"
   workflow_dispatch: {}
 
 permissions:

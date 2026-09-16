@@ -186,3 +186,18 @@ def test_two_overlapping_processes_execute_each_tick_exactly_once(cfg, ticks):
     assert len(scheduled) == len(set(scheduled)) == len(schedule)
     assert ticks.count(SLOW) == 1
     assert ticks.count(FAST) == len([t for t in schedule if t.kind == FAST])
+
+
+
+def test_the_afternoon_is_covered_by_fresh_runners():
+    """A runner lives six hours. Nothing launched before 14:00 UTC reaches
+    the 20:00 close; the chain of handoff legs each waited 60-130 minutes for
+    a runner in the first live week and lost eleven ticks in the gap. There
+    have to be starts with the open already behind them."""
+    spec = yaml.safe_load(WORKFLOW.read_text())
+    crons = [e["cron"].split() for e in spec[True]["schedule"]]
+    afternoon = [c for c in crons if int(c[1]) * 60 + int(c[0]) >= 13 * 60 + 45]
+    assert len(afternoon) >= 3
+    # spread, not bunched — delivery lag is the whole reason there are several
+    minutes = sorted(int(c[1]) * 60 + int(c[0]) for c in afternoon)
+    assert all(b - a >= 20 for a, b in zip(minutes, minutes[1:]))
