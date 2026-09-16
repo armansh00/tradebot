@@ -187,3 +187,66 @@ Tuesday can establish is only whether the instrument does what it says.
 - **Invalidation conditions the scorer cannot observe.** Three in a row now.
   Not retrofitted; the next forecast should name an instrument this
   repository already fetches.
+
+
+---
+
+## Run 4 — result, decided 2026-09-16 against the criteria fixed 2026-09-06
+
+Six live-market sessions, 2026-09-08 to 15, on `commissioning-candidate-2026-09-06`.
+Preflight cleared all three arms on SIP and their own accounts every day.
+
+| Arm | Verdict | Why |
+|---|---|---|
+| slow | **PASS** | Ran at open+2 on its own account all six sessions, decisions recorded, no orders because none were warranted. |
+| fast | **FAIL** | Not flat before the close: QQQ and TSLA carried overnight 09-09 → 09-10. A gap the record does not account for: AAPL sold at the close on 09-10 with no recorded buy. |
+| movers | **FAIL** | Same two ways: NOK bought twice on 09-08 and one lot sold; INTC sold at the close on 09-08 and 09-09 with no recorded buy either day. |
+
+P&L, zero weight: slow $49.14, fast $48.93, movers $50.15; the index fell
+about 3% across the window.
+
+### What the failures were
+
+**Lost ledger lines.** Several sessions run each day on purpose. When two
+woke at the same tick, both executed; the broker refused the duplicate order
+(four `duplicate_suppressed` events), but each process appended to its own
+copy of the ledger and the loser's lines were dropped in the rebase. Real
+fills vanished from the record while the broker held the positions. The
+"missing buys" above were real buys with no surviving record — which is the
+worst kind of failure this instrument can have, because everything
+downstream reads the ledger.
+
+**Screener picks the venue would not trade.** Thirteen of fifteen tick
+errors were `asset "TNON" is not fractionable`. The movers arm sized in
+dollars, the quantity came out fractional, the venue refused, and the tick
+died after the decision — and after the fast arm had already run.
+
+**Handoff lag.** Eleven ticks missed, nearly all at 14:05, 14:35 and 15:05:
+the early leg's budget expired at the open and the next leg waited 60 to 130
+minutes for a runner.
+
+---
+
+## Run 5 — candidate
+
+Tag: `commissioning-candidate-2026-09-16`
+
+| Defect | Commit | Guard |
+|---|---|---|
+| ledger lines lost to rebase; two processes executing one tick | `ec09e10` | `tests/test_tick_claims.py` (7) — union merge for ledgers, tick claimed and pushed before execution, per-arm error isolation |
+| screener picks the venue refuses | `b425a42` | `tests/test_fractionability.py` (6) |
+| afternoon handoff lag | `79006a5` | `tests/test_concurrent_starts.py` — four afternoon starts |
+| replay window guards (from the 09-06 review) | `3fa3c45`, `6783b6d`, `b61454f` | `tests/test_replay.py` (19) |
+
+Same per-arm criteria as run 4, unchanged. One addition to the failing
+conditions, made explicit because run 4 hit it: **an order the broker
+executed that the ledger does not record fails the arm.** The rule was
+already implied by "a gap the record does not account for"; it is now
+written out.
+
+### Still open, unchanged
+
+- `book_equity` rebaseline; `max_positions` counting; single-writer research
+  chain; invalidations the scorer cannot observe.
+- The fast replay. Its window is pinned and its rerun reason recorded; it
+  runs when this candidate is published.

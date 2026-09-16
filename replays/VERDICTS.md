@@ -37,7 +37,7 @@ fast replay shows, it is not a second population. This is a fact about the
 universes, not a prediction about the result, and the fast verdict is to be
 read on its own.
 
-## fast — as registered — pending
+## fast — as registered — pending (still, as of 2026-09-16: the rerun never launched because the fix was never published)
 
 First computation completed in run 34020674300 on 2026-09-06 and was lost
 to a research-log push race before it could be committed. The rerun is
