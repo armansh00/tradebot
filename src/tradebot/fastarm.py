@@ -127,7 +127,8 @@ def _fill(f, st: dict, ledger: Ledger, side: str, sym: str,
             return False
         if "reject" in status or "cancel" in status:
             ledger.write("fast_rejected", intent_id=iid, side=side, symbol=sym,
-                         status=result.get("status"), reason=reason, **snap)
+                         status=result.get("status"), reason=reason,
+                         detail=result.get("detail"), **snap)
             return False
         st["cost_accrued"] = round(st.get("cost_accrued", 0.0) + cost, 6)
         if side == "buy":
@@ -324,8 +325,21 @@ def run_fast_once(cfg: Config, broker, now: datetime | None = None,
     tick_key = now.strftime("%H:%M")
 
     if f.universe_mode == "most_active":
-        universe = broker.most_actives(f.universe_size)
-        ledger.write("universe", arm=arm, day=today, symbols=universe)
+        screened = list(broker.most_actives(f.universe_size))
+        universe, excluded = screened, {}
+        if hasattr(broker, "tradable"):
+            # The screener ranks by activity and knows nothing about what the
+            # venue will let a $50 book do. Filter before deciding: a name
+            # the venue will not trade fractionally is not in the universe,
+            # and saying so here is what stops it from being an error later.
+            info = broker.tradable(screened)
+            universe = [s for s in screened
+                        if info.get(s, {}).get("tradable") and info[s].get("fractionable")]
+            excluded = {s: ("not_fractionable" if info.get(s, {}).get("tradable")
+                            else "not_tradable")
+                        for s in screened if s not in universe}
+        ledger.write("universe", arm=arm, day=today, symbols=universe,
+                     screened=screened, excluded=excluded or None)
     else:
         universe = f.universe
     bars = broker.intraday_5min(universe)  # {sym: df[t,o,h,l,c]}

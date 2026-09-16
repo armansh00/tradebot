@@ -236,6 +236,27 @@ class AlpacaBroker:
             out.append((d.date, o.replace(tzinfo=ET), c.replace(tzinfo=ET)))
         return out
 
+    def tradable(self, symbols: list[str]) -> dict[str, dict]:
+        """What the venue will actually do with each symbol.
+
+        A $50 book buys fractions of a share of almost everything. The
+        most-actives screener does not know that: in the first live week it
+        surfaced TNON, FTFT and VEEA — active, cheap, and not fractionable on
+        Alpaca — and every order for them was refused after the decision had
+        been made. Ask before deciding, not after.
+        """
+        out = {}
+        for sym in symbols:
+            try:
+                a = self._trading.get_asset(sym)
+                out[sym] = {"tradable": bool(getattr(a, "tradable", False)),
+                            "fractionable": bool(getattr(a, "fractionable", False)),
+                            "status": str(getattr(a, "status", ""))}
+            except Exception as exc:                  # noqa: BLE001
+                out[sym] = {"tradable": False, "fractionable": False,
+                            "error": f"{type(exc).__name__}: {exc}"[:120]}
+        return out
+
     def most_actives(self, n: int) -> list[str]:
         """Top-n most-active stocks by volume today (screener API).
 
@@ -368,8 +389,15 @@ class AlpacaBroker:
         try:
             resp = self._trading.submit_order(req)
         except Exception as exc:
-            if "client_order_id" in str(exc).lower() or "duplicate" in str(exc).lower():
+            msg = str(exc).lower()
+            if "client_order_id" in msg or "duplicate" in msg:
                 return {**order, "status": "duplicate_suppressed",
+                        "detail": str(exc)[:200]}
+            if "not fractionable" in msg or "not tradable" in msg or "not active" in msg:
+                # The venue said no to this symbol, not to the day. A refusal
+                # is a result: it goes in the ledger as a rejection and the
+                # arm carries on, rather than the whole tick dying.
+                return {**order, "status": "rejected_by_venue",
                         "detail": str(exc)[:200]}
             raise
         return {**order, "status": str(resp.status),
