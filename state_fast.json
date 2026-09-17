@@ -2,16 +2,17 @@
   "cash": 50.0,
   "positions": {},
   "or_low": {
-    "AMZN": 249.58,
+    "AMZN": 249.24,
     "MSFT": 495.3416,
     "QQQ": 702.74,
-    "META": 656.2
+    "META": 656.2,
+    "NVDA": 217.145
   },
-  "cost_accrued": 0.271392,
+  "cost_accrued": 0.295546,
   "high_water_mark": 50.2875,
   "day": "2026-09-17",
   "day_start_equity": 48.3086,
-  "trades_today": 0,
+  "trades_today": 2,
   "stopped_today": false,
   "halted": false,
   "day_equity_set": "2026-09-17"
