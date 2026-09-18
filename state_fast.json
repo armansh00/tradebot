@@ -8,10 +8,10 @@
   },
   "cost_accrued": 0.319627,
   "high_water_mark": 50.2875,
-  "day": "2026-09-17",
-  "day_start_equity": 48.3086,
-  "trades_today": 2,
+  "day": "2026-09-18",
+  "day_start_equity": 48.1404,
+  "trades_today": 0,
   "stopped_today": false,
   "halted": false,
-  "day_equity_set": "2026-09-17"
+  "day_equity_set": "2026-09-18"
 }
