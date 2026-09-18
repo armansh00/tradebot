@@ -4,13 +4,14 @@
   "or_low": {
     "MSFT": 495.3416,
     "QQQ": 702.74,
-    "META": 656.2
+    "META": 656.2,
+    "AMZN": 252.01
   },
-  "cost_accrued": 0.319627,
+  "cost_accrued": 0.331662,
   "high_water_mark": 50.2875,
   "day": "2026-09-18",
   "day_start_equity": 48.1404,
-  "trades_today": 0,
+  "trades_today": 1,
   "stopped_today": false,
   "halted": false,
   "day_equity_set": "2026-09-18"
