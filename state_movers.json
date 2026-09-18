@@ -1,12 +1,14 @@
 {
   "cash": 51.162203973497704,
   "positions": {},
-  "or_low": {},
-  "cost_accrued": 0.340478,
+  "or_low": {
+    "IBIT": 44.205
+  },
+  "cost_accrued": 0.37785,
   "high_water_mark": 51.24,
   "day": "2026-09-18",
   "day_start_equity": 49.8295,
-  "trades_today": 0,
+  "trades_today": 1,
   "stopped_today": false,
   "halted": false,
   "day_equity_set": "2026-09-18"
