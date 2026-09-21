@@ -2,11 +2,9 @@
   "cash": 50.0,
   "positions": {},
   "or_low": {
-    "MSFT": 491.5,
-    "QQQ": 702.74,
-    "META": 679.6
+    "QQQ": 702.74
   },
-  "cost_accrued": 0.367672,
+  "cost_accrued": 0.392412,
   "high_water_mark": 50.2875,
   "day": "2026-09-21",
   "day_start_equity": 48.0363,
