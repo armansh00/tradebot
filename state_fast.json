@@ -2,13 +2,13 @@
   "cash": 50.0,
   "positions": {},
   "or_low": {
-    "QQQ": 702.74
+    "QQQ": 740.94
   },
-  "cost_accrued": 0.392412,
+  "cost_accrued": 0.404771,
   "high_water_mark": 50.2875,
   "day": "2026-09-22",
   "day_start_equity": 49.4376,
-  "trades_today": 0,
+  "trades_today": 1,
   "stopped_today": false,
   "halted": false,
   "day_equity_set": "2026-09-22"
