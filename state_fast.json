@@ -1,10 +1,8 @@
 {
   "cash": 50.0,
   "positions": {},
-  "or_low": {
-    "TSLA": 378.78
-  },
-  "cost_accrued": 0.454191,
+  "or_low": {},
+  "cost_accrued": 0.466269,
   "high_water_mark": 50.2875,
   "day": "2026-09-23",
   "day_start_equity": 49.4282,
