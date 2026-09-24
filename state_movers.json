@@ -2,13 +2,14 @@
   "cash": 51.162203973497704,
   "positions": {},
   "or_low": {
-    "INTC": 119.55
+    "INTC": 119.55,
+    "ONDS": 7.18
   },
-  "cost_accrued": 0.751867,
+  "cost_accrued": 0.788661,
   "high_water_mark": 51.24,
   "day": "2026-09-24",
   "day_start_equity": 49.4652,
-  "trades_today": 1,
+  "trades_today": 2,
   "stopped_today": false,
   "halted": false,
   "day_equity_set": "2026-09-24"
