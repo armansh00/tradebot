@@ -2,13 +2,14 @@
   "cash": 50.0,
   "positions": {},
   "or_low": {
-    "META": 743.006
+    "META": 743.006,
+    "QQQ": 734.62
   },
-  "cost_accrued": 0.502868,
+  "cost_accrued": 0.515075,
   "high_water_mark": 50.2875,
   "day": "2026-09-24",
   "day_start_equity": 48.8637,
-  "trades_today": 2,
+  "trades_today": 3,
   "stopped_today": false,
   "halted": false,
   "day_equity_set": "2026-09-24"
