@@ -1,15 +1,13 @@
 {
   "cash": 51.162203973497704,
   "positions": {},
-  "or_low": {
-    "GLND": 4.83
-  },
-  "cost_accrued": 0.899189,
+  "or_low": {},
+  "cost_accrued": 0.93324,
   "high_water_mark": 51.24,
   "day": "2026-09-25",
   "day_start_equity": 49.1577,
   "trades_today": 1,
-  "stopped_today": false,
+  "stopped_today": true,
   "halted": false,
   "day_equity_set": "2026-09-25"
 }

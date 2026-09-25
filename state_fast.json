@@ -2,13 +2,14 @@
   "cash": 50.0,
   "positions": {},
   "or_low": {
-    "AAPL": 334.53
+    "AAPL": 334.53,
+    "SPY": 767.75
   },
-  "cost_accrued": 0.552011,
+  "cost_accrued": 0.564346,
   "high_water_mark": 50.2875,
   "day": "2026-09-25",
   "day_start_equity": 49.1703,
-  "trades_today": 1,
+  "trades_today": 2,
   "stopped_today": false,
   "halted": false,
   "day_equity_set": "2026-09-25"
