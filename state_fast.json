@@ -4,10 +4,10 @@
   "or_low": {},
   "cost_accrued": 0.539718,
   "high_water_mark": 50.2875,
-  "day": "2026-09-24",
-  "day_start_equity": 48.8637,
-  "trades_today": 3,
+  "day": "2026-09-25",
+  "day_start_equity": 49.1703,
+  "trades_today": 0,
   "stopped_today": false,
   "halted": false,
-  "day_equity_set": "2026-09-24"
+  "day_equity_set": "2026-09-25"
 }
