@@ -2,13 +2,14 @@
   "cash": 50.0,
   "positions": {},
   "or_low": {
-    "MSFT": 502.22
+    "MSFT": 502.22,
+    "AMZN": 244.725
   },
-  "cost_accrued": 0.601374,
+  "cost_accrued": 0.613721,
   "high_water_mark": 50.2875,
   "day": "2026-09-28",
   "day_start_equity": 49.2909,
-  "trades_today": 1,
+  "trades_today": 2,
   "stopped_today": false,
   "halted": false,
   "day_equity_set": "2026-09-28"
