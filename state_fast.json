@@ -1,11 +1,8 @@
 {
   "cash": 50.0,
   "positions": {},
-  "or_low": {
-    "MSFT": 502.4,
-    "META": 720.05
-  },
-  "cost_accrued": 0.662878,
+  "or_low": {},
+  "cost_accrued": 0.687385,
   "high_water_mark": 50.2875,
   "day": "2026-09-29",
   "day_start_equity": 49.1816,
