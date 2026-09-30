@@ -4569,3 +4569,4 @@
 {"ts": "2026-09-30T19:40:05+00:00", "type": "data_plan", "arm": "fast", "symbol": "SPY", "asof": "2026-09-30T19:40:04.501093+00:00", "sip_recent": "ok", "sip_delayed": "ok", "iex": "ok", "effective_feed": "sip"}
 {"ts": "2026-09-30T19:40:05+00:00", "type": "data_plan", "arm": "movers", "symbol": "SPY", "asof": "2026-09-30T19:40:05.432561+00:00", "sip_recent": "ok", "sip_delayed": "ok", "iex": "ok", "effective_feed": "sip"}
 {"ts": "2026-09-30T19:58:00+00:00", "type": "tick_claim", "kind": "fast", "scheduled": "2026-09-30T19:58:00+00:00", "run": "36767208595", "at": "2026-09-30T19:58:00.408110+00:00"}
+{"ts": "2026-09-30T19:58:43+00:00", "type": "tick", "kind": "fast", "scheduled": "2026-09-30T19:58:00+00:00", "run": "36767208595", "status": {"fast": "ok", "movers": "ok"}, "errors": null}
