@@ -1,10 +1,8 @@
 {
   "cash": 51.162203973497704,
   "positions": {},
-  "or_low": {
-    "NU": 12.1305
-  },
-  "cost_accrued": 1.038666,
+  "or_low": {},
+  "cost_accrued": 1.073952,
   "high_water_mark": 51.24,
   "day": "2026-09-30",
   "day_start_equity": 46.8164,

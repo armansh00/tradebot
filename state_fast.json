@@ -1,11 +1,8 @@
 {
   "cash": 50.0,
   "positions": {},
-  "or_low": {
-    "AAPL": 330.1401,
-    "AMZN": 246.08
-  },
-  "cost_accrued": 0.711927,
+  "or_low": {},
+  "cost_accrued": 0.736333,
   "high_water_mark": 50.2875,
   "day": "2026-09-30",
   "day_start_equity": 49.0826,
