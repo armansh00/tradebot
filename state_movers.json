@@ -2,13 +2,14 @@
   "cash": 51.162203973497704,
   "positions": {},
   "or_low": {
-    "SPDN": 8.45
+    "SPDN": 8.45,
+    "HYG": 76.57
   },
-  "cost_accrued": 1.109079,
+  "cost_accrued": 1.14412,
   "high_water_mark": 51.24,
   "day": "2026-10-01",
   "day_start_equity": 46.836,
-  "trades_today": 1,
+  "trades_today": 2,
   "stopped_today": false,
   "halted": false,
   "day_equity_set": "2026-10-01"
