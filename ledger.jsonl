@@ -5136,3 +5136,20 @@
 {"ts": "2026-10-02T19:05:07+00:00", "type": "tick", "kind": "fast", "scheduled": "2026-10-02T19:05:00+00:00", "run": "36999861902", "status": {"fast": "ok", "movers": "ok"}, "errors": null}
 {"ts": "2026-10-02T19:05:00+00:00", "type": "tick_claim", "kind": "fast", "scheduled": "2026-10-02T19:05:00+00:00", "run": "37022205346", "at": "2026-10-02T19:05:00.552792+00:00"}
 {"ts": "2026-10-02T19:05:21+00:00", "type": "tick", "kind": "fast", "scheduled": "2026-10-02T19:05:00+00:00", "run": "37022205346", "status": {"fast": "ok", "movers": "ok"}, "errors": null}
+{"ts": "2026-10-02T18:44:28+00:00", "type": "session", "status": "start", "started": "2026-10-02T18:44:28.074016+00:00", "market_open": "2026-10-02T13:30:00+00:00", "market_close": "2026-10-02T20:00:00+00:00", "deadline": "2026-10-03T00:24:28.074016+00:00", "ticks_planned": 14, "late_minutes": 314.5}
+{"ts": "2026-10-02T18:44:29+00:00", "type": "preflight", "arm": "slow", "probe": "daily_closes", "ok": true, "severity": "blocking", "detail": "2 rows"}
+{"ts": "2026-10-02T18:44:29+00:00", "type": "preflight", "arm": "slow", "probe": "declared_feed", "ok": true, "severity": "blocking", "detail": "declared sip, served sip"}
+{"ts": "2026-10-02T18:44:29+00:00", "type": "preflight", "arm": "slow", "probe": "account_identity", "ok": true, "severity": "blocking", "detail": "own account"}
+{"ts": "2026-10-02T18:44:29+00:00", "type": "preflight", "arm": "fast", "probe": "intraday_5min", "ok": true, "severity": "blocking", "detail": "2 rows"}
+{"ts": "2026-10-02T18:44:29+00:00", "type": "preflight", "arm": "fast", "probe": "quote_snapshot", "ok": true, "severity": "advisory", "detail": "mid 769.275"}
+{"ts": "2026-10-02T18:44:29+00:00", "type": "preflight", "arm": "fast", "probe": "declared_feed", "ok": true, "severity": "blocking", "detail": "declared sip, served sip"}
+{"ts": "2026-10-02T18:44:29+00:00", "type": "preflight", "arm": "fast", "probe": "account_identity", "ok": true, "severity": "blocking", "detail": "own account"}
+{"ts": "2026-10-02T18:44:29+00:00", "type": "preflight", "arm": "movers", "probe": "most_actives", "ok": true, "severity": "blocking", "detail": "10 symbols"}
+{"ts": "2026-10-02T18:44:29+00:00", "type": "preflight", "arm": "movers", "probe": "intraday_5min", "ok": true, "severity": "blocking", "detail": "2 rows"}
+{"ts": "2026-10-02T18:44:29+00:00", "type": "preflight", "arm": "movers", "probe": "quote_snapshot", "ok": true, "severity": "advisory", "detail": "mid 0.1259"}
+{"ts": "2026-10-02T18:44:29+00:00", "type": "preflight", "arm": "movers", "probe": "declared_feed", "ok": true, "severity": "blocking", "detail": "declared sip, served sip"}
+{"ts": "2026-10-02T18:44:29+00:00", "type": "preflight", "arm": "movers", "probe": "account_identity", "ok": true, "severity": "blocking", "detail": "own account"}
+{"ts": "2026-10-02T18:44:29+00:00", "type": "data_plan", "arm": "slow", "symbol": "SPY", "asof": "2026-10-02T18:44:28.348586+00:00", "sip_recent": "ok", "sip_delayed": "ok", "iex": "ok", "effective_feed": "sip"}
+{"ts": "2026-10-02T18:44:29+00:00", "type": "data_plan", "arm": "fast", "symbol": "SPY", "asof": "2026-10-02T18:44:28.727090+00:00", "sip_recent": "ok", "sip_delayed": "ok", "iex": "ok", "effective_feed": "sip"}
+{"ts": "2026-10-02T18:44:29+00:00", "type": "data_plan", "arm": "movers", "symbol": "SPY", "asof": "2026-10-02T18:44:29.415105+00:00", "sip_recent": "ok", "sip_delayed": "ok", "iex": "ok", "effective_feed": "sip"}
+{"ts": "2026-10-02T19:05:00+00:00", "type": "tick_claim", "kind": "fast", "scheduled": "2026-10-02T19:05:00+00:00", "run": "37049443699", "at": "2026-10-02T19:05:00.319851+00:00"}
