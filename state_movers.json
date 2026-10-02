@@ -1,11 +1,8 @@
 {
   "cash": 51.162203973497704,
   "positions": {},
-  "or_low": {
-    "NKE": 31.97,
-    "SPCX": 149.34
-  },
-  "cost_accrued": 1.283993,
+  "or_low": {},
+  "cost_accrued": 1.354531,
   "high_water_mark": 51.24,
   "day": "2026-10-02",
   "day_start_equity": 46.5459,
