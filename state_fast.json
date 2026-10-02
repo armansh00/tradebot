@@ -1,13 +1,16 @@
 {
   "cash": 50.0,
   "positions": {},
-  "or_low": {},
-  "cost_accrued": 0.76066,
+  "or_low": {
+    "QQQ": 749.1,
+    "TSLA": 359.411
+  },
+  "cost_accrued": 0.78497,
   "high_water_mark": 50.2875,
-  "day": "2026-10-01",
-  "day_start_equity": 48.7637,
-  "trades_today": 1,
+  "day": "2026-10-02",
+  "day_start_equity": 48.6193,
+  "trades_today": 2,
   "stopped_today": false,
   "halted": false,
-  "day_equity_set": "2026-10-01"
+  "day_equity_set": "2026-10-02"
 }
