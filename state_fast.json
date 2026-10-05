@@ -1,12 +1,15 @@
 {
   "cash": 50.0,
   "positions": {},
-  "or_low": {},
-  "cost_accrued": 0.833509,
+  "or_low": {
+    "META": 727.12,
+    "SPY": 769.63
+  },
+  "cost_accrued": 0.857773,
   "high_water_mark": 50.2875,
   "day": "2026-10-05",
   "day_start_equity": 48.5265,
-  "trades_today": 0,
+  "trades_today": 2,
   "stopped_today": false,
   "halted": false,
   "day_equity_set": "2026-10-05"
