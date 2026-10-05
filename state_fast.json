@@ -1,11 +1,8 @@
 {
   "cash": 50.0,
   "positions": {},
-  "or_low": {
-    "META": 727.12,
-    "SPY": 769.63
-  },
-  "cost_accrued": 0.857773,
+  "or_low": {},
+  "cost_accrued": 0.882097,
   "high_water_mark": 50.2875,
   "day": "2026-10-05",
   "day_start_equity": 48.5265,
