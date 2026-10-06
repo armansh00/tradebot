@@ -1,13 +1,15 @@
 {
   "cash": 50.0,
   "positions": {},
-  "or_low": {},
-  "cost_accrued": 0.882097,
+  "or_low": {
+    "SPY": 777.96
+  },
+  "cost_accrued": 0.894246,
   "high_water_mark": 50.2875,
-  "day": "2026-10-05",
-  "day_start_equity": 48.5265,
-  "trades_today": 2,
+  "day": "2026-10-06",
+  "day_start_equity": 48.5979,
+  "trades_today": 1,
   "stopped_today": false,
   "halted": false,
-  "day_equity_set": "2026-10-05"
+  "day_equity_set": "2026-10-06"
 }
