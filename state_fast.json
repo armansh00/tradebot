@@ -1,12 +1,15 @@
 {
   "cash": 50.0,
   "positions": {},
-  "or_low": {},
-  "cost_accrued": 0.930764,
+  "or_low": {
+    "AMZN": 253.17,
+    "QQQ": 751.75
+  },
+  "cost_accrued": 0.955128,
   "high_water_mark": 50.2875,
   "day": "2026-10-07",
   "day_start_equity": 48.7292,
-  "trades_today": 0,
+  "trades_today": 2,
   "stopped_today": false,
   "halted": false,
   "day_equity_set": "2026-10-07"
