@@ -1,10 +1,8 @@
 {
   "cash": 50.0,
   "positions": {},
-  "or_low": {
-    "AAPL": 335.9
-  },
-  "cost_accrued": 1.040148,
+  "or_low": {},
+  "cost_accrued": 1.052235,
   "high_water_mark": 50.2875,
   "day": "2026-10-08",
   "day_start_equity": 48.9204,

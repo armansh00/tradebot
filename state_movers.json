@@ -1,10 +1,8 @@
 {
   "cash": 51.162203973497704,
   "positions": {},
-  "or_low": {
-    "SOXS": 32.02
-  },
-  "cost_accrued": 1.460251,
+  "or_low": {},
+  "cost_accrued": 1.495377,
   "high_water_mark": 51.24,
   "day": "2026-10-08",
   "day_start_equity": 46.9249,
