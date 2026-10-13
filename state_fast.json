@@ -1,11 +1,8 @@
 {
   "cash": 50.0,
   "positions": {},
-  "or_low": {
-    "NVDA": 223.0602,
-    "TSLA": 371.3
-  },
-  "cost_accrued": 1.148685,
+  "or_low": {},
+  "cost_accrued": 1.172813,
   "high_water_mark": 50.2875,
   "day": "2026-10-13",
   "day_start_equity": 48.1554,
