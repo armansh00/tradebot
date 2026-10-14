@@ -2973,3 +2973,4 @@
 {"ts": "2026-10-14T15:35:43+00:00", "type": "fast_halted", "arm": "movers", "reason": "drawdown_kill", "day": "2026-10-14", "flattened": [], "still_held": []}
 {"ts": "2026-10-14T16:05:03+00:00", "type": "fast_halted", "arm": "movers", "reason": "drawdown_kill", "day": "2026-10-14", "flattened": [], "still_held": []}
 {"ts": "2026-10-14T16:05:10+00:00", "type": "fast_halted", "arm": "movers", "reason": "drawdown_kill", "day": "2026-10-14", "flattened": [], "still_held": []}
+{"ts": "2026-10-14T16:05:22+00:00", "type": "fast_halted", "arm": "movers", "reason": "drawdown_kill", "day": "2026-10-14", "flattened": [], "still_held": []}
