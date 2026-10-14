@@ -7321,3 +7321,4 @@
 {"ts": "2026-10-14T18:09:47+00:00", "type": "order", "symbol": "SPY", "side": "buy", "notional": 23.05, "from_notional": 0.0, "to_notional": 23.05, "status": "OrderStatus.PENDING_NEW", "broker_order_id": "337fc21d-bbd2-4f31-a8f1-c87626b3e446", "submitted_at": "2026-10-14 18:09:47.375095+00:00", "filled_qty": 0.0, "filled_avg_price": 0.0}
 {"ts": "2026-10-14T18:09:47+00:00", "type": "run", "equity": 48.53, "positions": {"IWM": 0.001416, "QQQ": 24.205952, "SPY": 23.039759}, "day_change_pct": -1.979, "n_orders": 2}
 {"ts": "2026-10-14T18:35:00+00:00", "type": "tick_claim", "kind": "fast", "scheduled": "2026-10-14T18:35:00+00:00", "run": "38593855783", "at": "2026-10-14T18:35:00.607306+00:00"}
+{"ts": "2026-10-14T18:35:03+00:00", "type": "tick", "kind": "fast", "scheduled": "2026-10-14T18:35:00+00:00", "run": "38593855783", "status": {"fast": "ok", "movers": "halted"}, "errors": null}
