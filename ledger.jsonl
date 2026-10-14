@@ -7383,3 +7383,4 @@
 {"ts": "2026-10-14T19:35:03+00:00", "type": "tick", "kind": "fast", "scheduled": "2026-10-14T19:35:00+00:00", "run": "38593855783", "status": {"fast": "ok", "movers": "halted"}, "errors": null}
 {"ts": "2026-10-14T19:35:00+00:00", "type": "tick_claim", "kind": "fast", "scheduled": "2026-10-14T19:35:00+00:00", "run": "38536477976", "at": "2026-10-14T19:35:00.583390+00:00"}
 {"ts": "2026-10-14T19:35:09+00:00", "type": "tick", "kind": "fast", "scheduled": "2026-10-14T19:35:00+00:00", "run": "38536477976", "status": {"fast": "ok", "movers": "halted"}, "errors": null}
+{"ts": "2026-10-14T19:35:11+00:00", "type": "session", "status": "handoff", "at": "2026-10-14T19:35:11.161271+00:00", "deadline": "2026-10-14T19:45:26.997223+00:00", "ticks_deferred": 1, "deferred": ["2026-10-14T19:58:00+00:00"], "ran": 11, "missed": 0, "resumed": 2}
