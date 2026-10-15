@@ -2,13 +2,14 @@
   "cash": 50.0,
   "positions": {},
   "or_low": {
-    "AMZN": 248.65
+    "AMZN": 248.65,
+    "NVDA": 212.85
   },
-  "cost_accrued": 1.184875,
+  "cost_accrued": 1.196954,
   "high_water_mark": 50.2875,
   "day": "2026-10-15",
   "day_start_equity": 48.2472,
-  "trades_today": 1,
+  "trades_today": 2,
   "stopped_today": false,
   "halted": false,
   "day_equity_set": "2026-10-15"
