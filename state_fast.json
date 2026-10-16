@@ -1,12 +1,14 @@
 {
   "cash": 50.0,
   "positions": {},
-  "or_low": {},
-  "cost_accrued": 1.221304,
+  "or_low": {
+    "NVDA": 215.07
+  },
+  "cost_accrued": 1.233459,
   "high_water_mark": 50.2875,
   "day": "2026-10-16",
   "day_start_equity": 48.6187,
-  "trades_today": 0,
+  "trades_today": 1,
   "stopped_today": false,
   "halted": false,
   "day_equity_set": "2026-10-16"
