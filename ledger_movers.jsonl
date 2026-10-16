@@ -3089,3 +3089,4 @@
 {"ts": "2026-10-16T15:05:21+00:00", "type": "fast_halted", "arm": "movers", "reason": "drawdown_kill", "day": "2026-10-16", "flattened": [], "still_held": []}
 {"ts": "2026-10-16T15:05:42+00:00", "type": "fast_halted", "arm": "movers", "reason": "drawdown_kill", "day": "2026-10-16", "flattened": [], "still_held": []}
 {"ts": "2026-10-16T15:35:02+00:00", "type": "fast_halted", "arm": "movers", "reason": "drawdown_kill", "day": "2026-10-16", "flattened": [], "still_held": []}
+{"ts": "2026-10-16T15:35:09+00:00", "type": "fast_halted", "arm": "movers", "reason": "drawdown_kill", "day": "2026-10-16", "flattened": [], "still_held": []}
