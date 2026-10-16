@@ -8011,3 +8011,4 @@
 {"ts": "2026-10-16T15:21:23+00:00", "type": "data_plan", "arm": "movers", "symbol": "SPY", "asof": "2026-10-16T15:21:23.428112+00:00", "sip_recent": "ok", "sip_delayed": "ok", "iex": "ok", "effective_feed": "sip"}
 {"ts": "2026-10-16T15:35:00+00:00", "type": "tick_claim", "kind": "fast", "scheduled": "2026-10-16T15:35:00+00:00", "run": "38919634155", "at": "2026-10-16T15:35:00.357645+00:00"}
 {"ts": "2026-10-16T15:35:02+00:00", "type": "tick", "kind": "fast", "scheduled": "2026-10-16T15:35:00+00:00", "run": "38919634155", "status": {"fast": "ok", "movers": "halted"}, "errors": null}
+{"ts": "2026-10-16T15:35:00+00:00", "type": "tick_claim", "kind": "fast", "scheduled": "2026-10-16T15:35:00+00:00", "run": "38906794934", "at": "2026-10-16T15:35:00.427253+00:00"}
