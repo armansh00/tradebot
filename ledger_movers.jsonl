@@ -3123,3 +3123,4 @@
 {"ts": "2026-10-16T18:35:23+00:00", "type": "fast_halted", "arm": "movers", "reason": "drawdown_kill", "day": "2026-10-16", "flattened": [], "still_held": []}
 {"ts": "2026-10-16T18:35:21+00:00", "type": "fast_halted", "arm": "movers", "reason": "drawdown_kill", "day": "2026-10-16", "flattened": [], "still_held": []}
 {"ts": "2026-10-16T18:35:41+00:00", "type": "fast_halted", "arm": "movers", "reason": "drawdown_kill", "day": "2026-10-16", "flattened": [], "still_held": []}
+{"ts": "2026-10-16T18:35:44+00:00", "type": "fast_halted", "arm": "movers", "reason": "drawdown_kill", "day": "2026-10-16", "flattened": [], "still_held": []}
