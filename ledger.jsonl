@@ -8508,3 +8508,4 @@
 {"ts": "2026-11-02T20:44:04+00:00", "type": "data_plan", "arm": "fast", "symbol": "SPY", "asof": "2026-11-02T20:44:01.862069+00:00", "sip_recent": "denied", "sip_delayed": "ok", "iex": "ok", "effective_feed": "sip_delayed"}
 {"ts": "2026-11-02T20:44:04+00:00", "type": "data_plan", "arm": "movers", "symbol": "SPY", "asof": "2026-11-02T20:44:03.274715+00:00", "sip_recent": "denied", "sip_delayed": "ok", "iex": "ok", "effective_feed": "sip_delayed"}
 {"ts": "2026-11-02T20:44:04+00:00", "type": "preflight", "status": "DATA_PREFLIGHT_FAIL", "disabled": ["fast", "movers", "slow"], "reason": ["declared sip, served sip_delayed", "APIError: {\"message\":\"subscription does not permit querying recent SIP data\"}\n", "declared sip, served sip_delayed", "APIError: {\"message\":\"subscription does not permit querying recent SIP data\"}\n", "declared sip, served sip_delayed"]}
+{"ts": "2026-11-02T22:27:56+00:00", "type": "run_skipped", "reason": "market_closed"}
