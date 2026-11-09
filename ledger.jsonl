@@ -8595,3 +8595,4 @@
 {"ts": "2026-11-09T21:24:59+00:00", "type": "data_plan", "arm": "fast", "symbol": "SPY", "asof": "2026-11-09T21:24:58.811614+00:00", "sip_recent": "denied", "sip_delayed": "ok", "iex": "ok", "effective_feed": "sip_delayed"}
 {"ts": "2026-11-09T21:24:59+00:00", "type": "data_plan", "arm": "movers", "symbol": "SPY", "asof": "2026-11-09T21:24:59.364441+00:00", "sip_recent": "denied", "sip_delayed": "ok", "iex": "ok", "effective_feed": "sip_delayed"}
 {"ts": "2026-11-09T21:24:59+00:00", "type": "preflight", "status": "DATA_PREFLIGHT_FAIL", "disabled": ["fast", "movers", "slow"], "reason": ["declared sip, served sip_delayed", "declared sip, served sip_delayed", "declared sip, served sip_delayed"]}
+{"ts": "2026-11-09T23:08:03+00:00", "type": "run_skipped", "reason": "market_closed"}
